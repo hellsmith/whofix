@@ -1,0 +1,20 @@
+﻿
+@{
+	ViewBag.Title = "Predict";
+}
+<div class="font-semibold font-title">
+	Who Can Fix It
+</div>
+<p>
+	Ja, wer kann es denn nun fixen? Es könnte jeder sein. Du vielleicht nicht...
+
+	<div>
+		@Html.Raw(ViewBag.Prediction)
+	</div>
+	<div>
+		@Html.Raw(ViewBag.ErrorMsg)
+	</div>
+	<div>
+		@Html.Raw(ViewBag.ErrorStack)
+	</div>
+</p>
