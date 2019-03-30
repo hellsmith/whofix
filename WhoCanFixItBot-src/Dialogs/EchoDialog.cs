@@ -18,11 +18,9 @@ using System.Web;
 using SimpleEchoBot.Models;
 using System.Globalization;
 
-namespace Microsoft.Bot.Sample.SimpleEchoBot
-{
+namespace Microsoft.Bot.Sample.SimpleEchoBot {
     [Serializable]
-    public class EchoDialog : IDialog<object>
-    {
+    public class EchoDialog : IDialog<object> {
         private const string VIS_COG_URL = "http://whocanfixitapp.azurewebsites.net";
         private const string VIS_COG_CHECK = "/CheckImage";
         private const string VIS_COG_ADD = "/AddImage";
@@ -63,7 +61,7 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
 
                     //string base64String = Convert.ToBase64String(imageBytes);
 
-                    List<TagPrediction> predictions = GetImageStuff(url);
+                    List<TagPrediction> predictions = await GetImageRawData(imageBytes);
                     tags = predictions.Select(i => i.TagName).ToList();
 
                     context.ConversationData.SetValue<List<string>>("tags", tags);
@@ -242,45 +240,45 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
         }
 
 
-        //private async Task<List<TagPrediction>> GetImageRawData(byte[] rawData)
-        //{
-        //    List<TagPrediction> results = new List<TagPrediction>();
+        private async Task<List<TagPrediction>> GetImageRawData(byte[] rawData)
+        {
+            List<TagPrediction> results = new List<TagPrediction>();
 
-        //    try
-        //    {
-        //        var result = await LoadPredictions(rawData);
+            try
+            {
+                var result = await LoadPredictions(rawData);
 
-        //        //LoadPredictions
-        //        //var dataStr = Convert.ToBase64String(rawData);
-        //        //var postData = Encoding.ASCII.GetBytes("data=" + dataStr);
-        //        //HttpWebRequest request = (HttpWebRequest)WebRequest.Create(VIS_COG_URL + VIS_COG_CHECK);
-        //        //request.ContentType = "application/x-www-form-urlencoded";
-        //        //request.Method = "POST";
+                //LoadPredictions
+                //var dataStr = Convert.ToBase64String(rawData);
+                //var postData = Encoding.ASCII.GetBytes("data=" + dataStr);
+                //HttpWebRequest request = (HttpWebRequest)WebRequest.Create(VIS_COG_URL + VIS_COG_CHECK);
+                //request.ContentType = "application/x-www-form-urlencoded";
+                //request.Method = "POST";
 
-        //        //using (var stream = request.GetRequestStream())
-        //        //{
-        //        //    stream.Write(postData, 0, postData.Length);
-        //        //}
+                //using (var stream = request.GetRequestStream())
+                //{
+                //    stream.Write(postData, 0, postData.Length);
+                //}
 
-        //        //string result = "";
+                //string result = "";
 
-        //        //using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
-        //        //using (Stream stream = response.GetResponseStream())
-        //        //using (StreamReader reader = new StreamReader(stream))
-        //        //{
-        //        //    result = reader.ReadToEnd();
-        //        //}
+                //using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
+                //using (Stream stream = response.GetResponseStream())
+                //using (StreamReader reader = new StreamReader(stream))
+                //{
+                //    result = reader.ReadToEnd();
+                //}
 
-        //        //results = (JsonConvert.DeserializeObject<List<TagPrediction>>(result));
+                //results = (JsonConvert.DeserializeObject<List<TagPrediction>>(result));
 
 
-        //    }
-        //    catch (Exception e)
-        //    {
-        //        return new List<TagPrediction>() { new TagPrediction() { TagName = e.ToString() } };
-        //    }
-        //    return results;
-        //}
+            }
+            catch (Exception e)
+            {
+                return new List<TagPrediction>() { new TagPrediction() { TagName = e.ToString() } };
+            }
+            return results;
+        }
 
         private static async Task<string> sendBase64Image(string base64string, HttpClient client)
         {
@@ -343,14 +341,14 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
                 catch (Exception e)
                 {
 
-                    
+
                 }
-                
+
             }
             return entities;
         }
 
-        private Attachment CreateTagChoiceResponse(Dictionary<string,List<Tag>> tags)
+        private Attachment CreateTagChoiceResponse(Dictionary<string, List<Tag>> tags)
         {
             List<string> choiceIds = new List<string>();
             List<string> choiceList = new List<string>();
@@ -360,11 +358,11 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
                 choiceIds.Add("MultiSelect" + entry.Key);
                 choices.Add(@"{
                         'type': 'TextBlock',
-                        'text': 'Which "+entry.Key+@"?'
+                        'text': 'Which " + entry.Key + @"?'
                     },
                     {
                         'type': 'Input.ChoiceSet',
-                        'id': 'MultiSelect"+entry.Key+@"',
+                        'id': 'MultiSelect" + entry.Key + @"',
                         'value': null,
                         'choices': ["
                         );
@@ -383,7 +381,7 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
             string json = @"{
                 'type': 'AdaptiveCard',
                 'body': ["
-                    +string.Join(",", choiceList )+
+                    + string.Join(",", choiceList) +
                 @"],
                 'actions': [
                     {
@@ -438,28 +436,23 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
             context.Wait(MessageReceivedAsync);
         }
 
-        //public async Task<List<TagPrediction>> LoadPredictions(byte[] image)
-        //{
-        //    using (var client = new HttpClient())
-        //    {
-        //        using (var content =
-        //            new MultipartFormDataContent("Upload----" + DateTime.Now.ToString(CultureInfo.InvariantCulture)))
-        //        {
-        //            string base64 = System.Convert.ToBase64String(image);
-        //            var content = new HttpContent();
-        //            content.
-        //            content.Add(
+        public async Task<List<TagPrediction>> LoadPredictions(byte[] image)
+        {
+            using (var client = new HttpClient())
+            {
+                using (var content = new MultipartFormDataContent())
+                {
+                    content.Add(new StringContent(Convert.ToBase64String(image)), "data");
 
-        //            using (
-        //               var message = await client.PostAsync(VIS_COG_URL + VIS_COG_CHECK, content))
-        //            {
-        //                var input = await message.Content.ReadAsStringAsync();
+                    using (var message = await client.PostAsync(VIS_COG_URL + VIS_COG_CHECK, content))
+                    {
+                        var input = await message.Content.ReadAsStringAsync();
 
-        //                return JsonConvert.DeserializeObject<List<TagPrediction>>(input);
-        //            }
-        //        }
-        //    }
-        //}
+                        return JsonConvert.DeserializeObject<List<TagPrediction>>(input);
+                    }
+                }
+            }
+        }
 
         private void SendPositiveTextFeedback(List<string> tags, string textinput)
         {
@@ -517,7 +510,7 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
                         }
                         else
                         {
-                            result.Add(pred.TagDesc,new List<Tag>(){new Tag()
+                            result.Add(pred.TagDesc, new List<Tag>(){new Tag()
                             {
                                 ID = pred.TagId,
                                 Name = pred.TagName
@@ -526,16 +519,15 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
                     }
                 }
             }
-            
+
             return result;
         }
     }
-    
-    public class Contact
-    {
+
+    public class Contact {
         public string Username { get; set; }
         public int Level { get; set; }
         public string Skillname { get; set; }
- 
+
     }
 }
