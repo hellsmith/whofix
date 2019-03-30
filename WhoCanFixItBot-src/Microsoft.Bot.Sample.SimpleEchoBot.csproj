@@ -183,6 +183,7 @@
       <DependentUpon>Global.asax</DependentUpon>
     </Compile>
     <Compile Include="Models\Contact.cs" />
+    <Compile Include="Models\Tag.cs" />
     <Compile Include="Models\TagPrediction.cs" />
     <Compile Include="Models\TagResponse.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
