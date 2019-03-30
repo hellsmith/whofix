@@ -13,6 +13,8 @@ using Newtonsoft.Json;
 using AdaptiveCards;
 using System.Linq;
 using SimpleEchoBot.Models;
+using System.Net.Http.Headers;
+using System.Web;
 
 namespace Microsoft.Bot.Sample.SimpleEchoBot
 {
@@ -57,8 +59,10 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
                     var webClient = new WebClient();
                     byte[] imageBytes = webClient.DownloadData(url);
 
+                    string base64String = Convert.ToBase64String(imageBytes);
 
-                    tags = GetTextRawData(attachment.ContentUrl);
+                    List<TagPrediction> predictions = GetImageRawData(base64String);
+                    tags = predictions.Select(i => i.TagName).ToList();
 
                     context.ConversationData.SetValue<List<string>>("tags", tags);
                     context.ConversationData.SetValue<string>("image", attachment.ContentUrl);
@@ -81,7 +85,7 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
                     var replyMessage = context.MakeMessage();
                     Attachment cardAttachment = CreateTagChoiceAdapativecard(tags);
                     replyMessage.Attachments = new List<Attachment> { cardAttachment };
-                    
+
 
                     await context.PostAsync(replyMessage);
 
@@ -94,7 +98,7 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
                     string skillsString = ((JObject)value).GetValue("MultiSelectVal").ToString();
                     string[] skills = skillsString.Split(',');
 
-                    
+
 
                     List<Contact> contacts = GetDynamicsData(skills.ToList());
 
@@ -205,7 +209,7 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
         private List<Contact> GetDynamicsData(List<string> tags)
         {
             List<Contact> contacts = new List<Contact>();
-            
+
             if (tags.Count > 0)
             {
                 HttpWebRequest request = (HttpWebRequest)WebRequest.Create(DYN_URL + Uri.EscapeDataString(tags[0]));
@@ -233,6 +237,76 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
             }
 
             return contacts;
+        }
+
+
+        private List<TagPrediction> GetImageRawData(string base64string)
+        {
+            List<TagPrediction> results = new List<TagPrediction>();
+            //HttpClient client = new HttpClient();
+            ////
+            //// Update port # in the following line.
+            //client.BaseAddress = new Uri(VIS_COG_URL + "/");
+            //client.DefaultRequestHeaders.Accept.Clear();
+            //client.DefaultRequestHeaders.Accept.Add(
+            //    new MediaTypeWithQualityHeaderValue("application/json"));
+            //var task = sendBase64Image(base64string, client);
+            //task.Start();
+            //task.Wait();
+            //
+            //var b = task.Result;
+            try
+            {
+
+                if (!string.IsNullOrWhiteSpace(base64string))
+                {
+
+                    var postData = "data=" + base64string;
+                    byte[] data = Encoding.ASCII.GetBytes(postData);
+
+                    HttpWebRequest request = (HttpWebRequest)WebRequest.Create(VIS_COG_URL + VIS_COG_CHECK);
+                    request.ContentType = "application/x-www-form-urlencoded";
+                    request.Method = "POST";
+
+                    using (var stream = request.GetRequestStream())
+                    {
+                        stream.Write(data, 0, data.Length);
+                    }
+
+                    string result = "";
+
+                    using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
+                    using (Stream stream = response.GetResponseStream())
+                    using (StreamReader reader = new StreamReader(stream))
+                    {
+                        result = reader.ReadToEnd();
+                    }
+
+                    results = (JsonConvert.DeserializeObject<List<TagPrediction>>(result));
+
+                    //foreach (dynamic ob in results)
+                    //{
+                    //    predictions.Add(new TagPrediction()
+                    //    {
+                    //        TagName = ob.TagName,
+
+                    //    });
+                    //}
+
+                }
+            }
+            catch (Exception e)
+            {
+                return new List<TagPrediction>() { new TagPrediction() { TagName = e.ToString()} };
+            }
+            return results;
+        }
+
+        private static async Task<string> sendBase64Image(string base64string, HttpClient client)
+        {
+            HttpResponseMessage response = await client.PostAsJsonAsync(
+                            VIS_COG_CHECK.TrimStart('/'), base64string);
+            return await response.Content.ReadAsAsync<string>();
         }
 
         private List<string> GetTextRawData(string inputString)
@@ -287,5 +361,5 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
     }
 
 
-    
+
 }

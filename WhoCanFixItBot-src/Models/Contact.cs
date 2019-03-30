@@ -10,6 +10,7 @@ namespace SimpleEchoBot.Models
         public string Username { get; set; }
         public int Level { get; set; }
         public string Skillname { get; set; }
+        public string Email { get; set; }
 
     }
 }
