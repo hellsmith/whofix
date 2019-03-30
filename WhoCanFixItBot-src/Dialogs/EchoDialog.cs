@@ -20,11 +20,12 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
     [Serializable]
     public class EchoDialog : IDialog<object>
     {
-        private const string trainingKey = "<your training key here>";
-        private const string predictionKey = "<your prediction key here>";
-        private static Guid PROJECT_ID = new Guid("WhoCanFixIt");
-        private const string VISION_ENDPOINT = "";
-        private const string PUBLISHED_MODEL_NAME = "";
+        private const string trainingKey = "12faac6f180a4e1e9053133826b3f188";
+        private const string predictionKey = "91fa8c7baf2347b09b05e3c05254bc27";
+        private const string resourceId = "/subscriptions/9981a4ee-be32-4cf7-939a-9e13ab373b8f/resourceGroups/rg_WhoCanFixIt/providers/Microsoft.CognitiveServices/accounts/fixit-vision-api-key";
+        private static Guid PROJECT_ID = new Guid("743035e8-4a5a-4f6e-ae4e-97b9e8b95f81");
+        private const string endpointUrl = "https://westeurope.api.cognitive.microsoft.com";
+        private const string PUBLISHED_MODEL_NAME = "Iteration 1";
 
         public const string LUIS_URL = "https://westus.api.cognitive.microsoft.com/luis/v2.0/apps/a53891ff-21a9-4484-b9c5-bd624ea755c8?spellCheck=true&bing-spell-check-subscription-key=%7B4c880a82a88a481cb7fb555fba560250%7D&verbose=true&timezoneOffset=-360&subscription-key=c435e337eea04d12b113f4d30e394dea&q=";
         protected int count = 1;
@@ -130,7 +131,7 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
             CustomVisionTrainingClient trainingApi = new CustomVisionTrainingClient()
             {
                 ApiKey = trainingKey,
-                Endpoint = VISION_ENDPOINT
+                Endpoint = endpointUrl
             };
 
             var project = trainingApi.GetProject(PROJECT_ID);
@@ -155,7 +156,7 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
             CustomVisionPredictionClient endpoint = new CustomVisionPredictionClient()
             {
                 ApiKey = predictionKey,
-                Endpoint = VISION_ENDPOINT
+                Endpoint = endpointUrl
             };
 
             using (MemoryStream mem = new MemoryStream(imgBytes))
