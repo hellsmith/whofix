@@ -1,16 +1,29 @@
-﻿using System;
+﻿using Microsoft.Azure.CognitiveServices.Vision.CustomVision.Prediction;
+using Microsoft.Azure.CognitiveServices.Vision.CustomVision.Training;
+using Microsoft.Azure.CognitiveServices.Vision.CustomVision.Training.Models;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Threading;
 using System.Threading.Tasks;
+using System.Web;
 using System.Web.Mvc;
 
 namespace Microsoft.Teams.Samples.HelloWorld.Web.Controllers
 {
     public class HomeController : Controller
     {
+        private const string trainingKey = "<your training key here>";
+        private const string predictionKey = "<your prediction key here>";
+
+        private static Guid PROJECT_ID = new Guid("WhoCanFixIt");
+        private const string SouthCentralUsEndpoint = "https://southcentralus.api.cognitive.microsoft.com";
+        
+        private static MemoryStream testImage;
+
         [Route("")]
         public ActionResult Index()
         {
@@ -55,6 +68,12 @@ namespace Microsoft.Teams.Samples.HelloWorld.Web.Controllers
             return View();
         }
 
+        public ActionResult Test(IEnumerable<HttpPostedFileBase> files)
+        {
+
+            return View();
+        }
+
         public static async Task<string> MakePredictionRequest(string imageFilePath)
         {
             var client = new HttpClient();
@@ -91,6 +110,84 @@ namespace Microsoft.Teams.Samples.HelloWorld.Web.Controllers
             {
                 return client.DownloadData(new Uri(url));
             }
+        }
+
+        public static IList<Tag> GetTags()
+        {
+            // Create the Api, passing in the training key
+            CustomVisionTrainingClient trainingApi = new CustomVisionTrainingClient()
+            {
+                ApiKey = trainingKey,
+                Endpoint = SouthCentralUsEndpoint
+            };
+
+            var project = trainingApi.GetProject(PROJECT_ID);
+
+            return trainingApi.GetTags(project.Id);
+        }
+
+        public static void AddImage(List<Guid> tags,byte [] imgBytes)
+        {
+
+            // Create the Api, passing in the training key
+            CustomVisionTrainingClient trainingApi = new CustomVisionTrainingClient()
+            {
+                ApiKey = trainingKey,
+                Endpoint = SouthCentralUsEndpoint
+            };
+
+            var project = trainingApi.GetProject(PROJECT_ID);
+
+            // Create a new project
+            //var project = trainingApi.CreateProject("My New Project");
+
+            // Make two tags in the new project
+            //var hemlockTag = trainingApi.CreateTag(project.Id, "Hemlock");
+            //var japaneseCherryTag = trainingApi.CreateTag(project.Id, "Japanese Cherry");
+            
+
+            // Images can be uploaded one at a time
+            using (var stream = new MemoryStream(imgBytes))
+            {
+                trainingApi.CreateImagesFromData(project.Id, stream, tags);
+            }
+            
+            //// Now there are images with tags start training the project
+            //var iteration = trainingApi.TrainProject(project.Id);
+
+            //// The returned iteration will be in progress, and can be queried periodically to see when it has completed
+            //while (iteration.Status == "Training")
+            //{
+            //    Thread.Sleep(1000);
+
+            //    // Re-query the iteration to get it's updated status
+            //    iteration = trainingApi.GetIteration(project.Id, iteration.Id);
+            //}
+
+            //// The iteration is now trained. Make it the default project endpoint
+            //iteration.IsDefault = true;
+            //trainingApi.UpdateIteration(project.Id, iteration.Id, iteration);
+
+            // Now there is a trained endpoint, it can be used to make a prediction
+
+            //// Create a prediction endpoint, passing in obtained prediction key
+            //CustomVisionPredictionClient endpoint = new CustomVisionPredictionClient()
+            //{
+            //    ApiKey = predictionKey,
+            //    Endpoint = SouthCentralUsEndpoint
+            //};
+
+            //// Make a prediction against the new project
+            //Console.WriteLine("Making a prediction:");
+            //var result = endpoint.PredictImage(project.Id, testImage);
+
+            //List<string> probabilities = new List<string>();
+
+            //// Loop over each prediction and write out the results
+            //foreach (var c in result.Predictions)
+            //{
+            //    probabilities.Add($"{c.TagName}: {c.Probability:P1}");
+            //}
         }
     }
 }
