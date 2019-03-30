@@ -18,9 +18,11 @@ using System.Web;
 using SimpleEchoBot.Models;
 using System.Globalization;
 
-namespace Microsoft.Bot.Sample.SimpleEchoBot {
+namespace Microsoft.Bot.Sample.SimpleEchoBot
+{
     [Serializable]
-    public class EchoDialog : IDialog<object> {
+    public class EchoDialog : IDialog<object>
+    {
         private const string VIS_COG_URL = "http://whocanfixitapp.azurewebsites.net";
         private const string VIS_COG_CHECK = "/CheckImage";
         private const string VIS_COG_ADD = "/AddImage";
@@ -246,36 +248,12 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot {
 
             try
             {
-                var result = await LoadPredictions(rawData);
-
-                //LoadPredictions
-                //var dataStr = Convert.ToBase64String(rawData);
-                //var postData = Encoding.ASCII.GetBytes("data=" + dataStr);
-                //HttpWebRequest request = (HttpWebRequest)WebRequest.Create(VIS_COG_URL + VIS_COG_CHECK);
-                //request.ContentType = "application/x-www-form-urlencoded";
-                //request.Method = "POST";
-
-                //using (var stream = request.GetRequestStream())
-                //{
-                //    stream.Write(postData, 0, postData.Length);
-                //}
-
-                //string result = "";
-
-                //using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
-                //using (Stream stream = response.GetResponseStream())
-                //using (StreamReader reader = new StreamReader(stream))
-                //{
-                //    result = reader.ReadToEnd();
-                //}
-
-                //results = (JsonConvert.DeserializeObject<List<TagPrediction>>(result));
-
+                results = await LoadPredictions(rawData);
 
             }
             catch (Exception e)
             {
-                return new List<TagPrediction>() { new TagPrediction() { TagName = e.ToString() } };
+                throw;
             }
             return results;
         }
@@ -448,7 +426,27 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot {
                     {
                         var input = await message.Content.ReadAsStringAsync();
 
-                        return JsonConvert.DeserializeObject<List<TagPrediction>>(input);
+                        //JsonConvert.DeserializeObject<List<TagPrediction>>(input);
+
+                        JArray ob = (JArray)JsonConvert.DeserializeObject(input);
+                        List<TagPrediction> preds = new List<TagPrediction>();
+                        foreach (dynamic e in ob)
+                        {
+                            try
+                            {
+                                preds.Add(new TagPrediction()
+                                {
+                                    TagDesc = e.TagDesc,
+                                    TagId = e.TagId,
+                                    TagName = e.TagName,
+                                    TagProbability = e.TagProbability
+                                });
+                            }
+                            catch (Exception)
+                            {
+                            }
+                        }
+                        return preds;
                     }
                 }
             }
@@ -524,7 +522,8 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot {
         }
     }
 
-    public class Contact {
+    public class Contact
+    {
         public string Username { get; set; }
         public int Level { get; set; }
         public string Skillname { get; set; }
