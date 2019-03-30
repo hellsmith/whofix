@@ -142,21 +142,21 @@ namespace Microsoft.Teams.Samples.HelloWorld.Web.Controllers
         }
 
         [Route("checkimage")]
-        public ActionResult CheckImage(string data)
+        public ActionResult CheckImage(byte[] data)
         {
-            byte[] img = null;
+            //byte[] img = null;
 
             
 
-            if (!string.IsNullOrEmpty(data))
-            {
-                data = data.Substring(5);
-                img = Convert.FromBase64String(data);
-            }
+            //if (!string.IsNullOrEmpty(img))
+            //{
+            //    data = data.Substring(5);
+            //    img = Convert.FromBase64String(data);
+            //}
 
-            if (img != null)
+            if (data != null && data.Length > 0)
             {
-                return Json(CheckImageData(img), JsonRequestBehavior.AllowGet);
+                return Json(CheckImageData(data), JsonRequestBehavior.AllowGet);
             }
             else
             {
@@ -172,6 +172,28 @@ namespace Microsoft.Teams.Samples.HelloWorld.Web.Controllers
                 }, JsonRequestBehavior.AllowGet);
             }
         }
+
+        //[Route("checkimageurl")]
+        //public ActionResult CheckImageUrl(string url)
+        //{
+        //    if (data != null && data.Length > 0)
+        //    {
+        //        return Json(CheckImageData(data), JsonRequestBehavior.AllowGet);
+        //    }
+        //    else
+        //    {
+        //        return Json(new List<TagPrediction>()
+        //        {
+        //            new TagPrediction()
+        //            {
+        //                TagDesc = "no description",
+        //                TagId = new Guid(),
+        //                TagName = "no name",
+        //                TagProbability = 1
+        //            }
+        //        }, JsonRequestBehavior.AllowGet);
+        //    }
+        //}
 
         [Route("addimage")]
         public void AddImage(string data)

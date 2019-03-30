@@ -16,6 +16,7 @@ using SimpleEchoBot.Models;
 using System.Net.Http.Headers;
 using System.Web;
 using SimpleEchoBot.Models;
+using System.Globalization;
 
 namespace Microsoft.Bot.Sample.SimpleEchoBot
 {
@@ -426,6 +427,27 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
                 await context.PostAsync("I'll do better next time!");
             }
             context.Wait(MessageReceivedAsync);
+        }
+
+        public async Task<List<TagPrediction>> LoadPredictions(byte [] image)
+        {
+            using (var client = new HttpClient())
+            {
+                using (var content =
+                    new MultipartFormDataContent("Upload----" + DateTime.Now.ToString(CultureInfo.InvariantCulture)))
+                {
+                    content.Add(new StreamContent(new MemoryStream(image)),"data");
+
+                    using (
+                       var message =
+                           await client.PostAsync(VIS_COG_URL + VIS_COG_CHECK, content))
+                    {
+                        var input = await message.Content.ReadAsStringAsync();
+
+                        return JsonConvert.DeserializeObject<List<TagPrediction>>(input);
+                    }
+                }
+            }
         }
 
         private void SendPositiveTextFeedback(List<string> tags, string textinput)
