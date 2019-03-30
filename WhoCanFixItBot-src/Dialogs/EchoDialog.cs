@@ -101,11 +101,23 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
                     string[] skills = skillsString.Split(',');
 
 
-
                     List<Contact> contacts = GetDynamicsData(skills.ToList());
 
-                    await context.PostAsync(string.Join(", ", contacts.Select(i => i.Username)));
-                    context.Wait(MessageReceivedAsync);
+                    if (contacts.Count > 0)
+                    {
+
+                        var replyMessage = context.MakeMessage();
+                        Attachment contactAttachment = CreateContactsCard(contacts);
+                        replyMessage.Attachments = new List<Attachment> { contactAttachment };
+
+                        await context.PostAsync(replyMessage);
+                    }
+                    else
+                    {
+                        await context.PostAsync("Sorry, I could not find any people with this skill");
+                        context.Wait(MessageReceivedAsync);
+                    }
+
                 }
             }
 
@@ -113,6 +125,7 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
 
         private Attachment CreateTagChoiceAdapativecard(List<string> tags)
         {
+
             List<string> choices = new List<string>();
             foreach (string tag in tags)
             {
@@ -164,36 +177,39 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
             List<string> choices = new List<string>();
             foreach (Contact contact in contacts)
             {
-                choices.Add("{'title': '" + contact + "', 'value': '" + contact + "'}");
+                choices.Add(@"{
+                        'type': 'FactSet', 
+                        'facts': [
+                            {
+                                'title': 'Name', 
+                                'value': '" + contact.Username + @"'
+                            },
+                            {
+                                'title': 'Email', 
+                                'value': '" + contact.Email + @"'
+                            },                    
+                            {
+                                'title': 'Skill', 
+                                'value': '" + contact.Skillname + @"'
+                            },
+                            {
+                                'title': 'Level', 
+                                'value': '" + contact.Level + @"'
+                            },
+                        ]}");
             }
 
-            string json = @"{
-                'type': 'AdaptiveCard',
-                'body': [
-                    {
-                        'type': 'TextBlock',
-                        'text': 'Which tag matches your query?'
-                    },
-                    {
-                        'type': 'Input.ChoiceSet',
-                        'id': 'MultiSelectVal',
-                        'value': null,
-                        'choices': [" +
-                        string.Join(",", choices) +
-                        @"],
-                        'isMultiSelect': true
-                    }
-                ],
-                'actions': [
-                    {
-                        'type': 'Action.Submit',
-                        'title': 'Submit',
-                        'data': {
-                            'id': 'MultiSelectVal'
-                        }
-                    }
-                ],
-                '$schema': 'http://adaptivecards.io/schemas/adaptive-card.json',
+            string json = @"{ 
+                'type': 'AdaptiveCard', 
+                'body': [ 
+                    { 
+                        'type': 'TextBlock', 
+                        'size': 'Medium', 
+                        'weight': 'Bolder', 
+                        'text': 'Contacts' 
+                    }," +
+                    string.Join(",", choices) + @"],
+                '$schema': 'http://adaptivecards.io/schemas/adaptive-card.json', 
                 'version': '1.0'
             }";
 
@@ -520,13 +536,5 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
 
             return result;
         }
-    }
-
-    public class Contact
-    {
-        public string Username { get; set; }
-        public int Level { get; set; }
-        public string Skillname { get; set; }
-
     }
 }
