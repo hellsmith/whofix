@@ -17,17 +17,14 @@ namespace WhoCanFixIt.DynamicsApi
             [HttpTrigger(AuthorizationLevel.Function, "get", "post", Route = null)] HttpRequest req,
             ILogger log)
         {
+            string dynamcisApiUrl = "https://m365x338761.api.crm4.dynamics.com/api/data/v9.1/";
+            dynamcisApiUrl += "users";
+
             log.LogInformation("C# HTTP trigger function processed a request.");
 
-            string name = req.Query["name"];
+            // URL Paramter => Wichtig für abfrage durch Teams etc.
+            // string name = req.Query["name"];
 
-            string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
-            dynamic data = JsonConvert.DeserializeObject(requestBody);
-            name = name ?? data?.name;
-
-            return name != null
-                ? (ActionResult)new OkObjectResult($"Hello, {name}")
-                : new BadRequestObjectResult("Please pass a name on the query string or in the request body");
         }
     }
 }
