@@ -173,27 +173,32 @@ namespace Microsoft.Teams.Samples.HelloWorld.Web.Controllers
             }
         }
 
-        //[Route("checkimageurl")]
-        //public ActionResult CheckImageUrl(string url)
-        //{
-        //    if (data != null && data.Length > 0)
-        //    {
-        //        return Json(CheckImageData(data), JsonRequestBehavior.AllowGet);
-        //    }
-        //    else
-        //    {
-        //        return Json(new List<TagPrediction>()
-        //        {
-        //            new TagPrediction()
-        //            {
-        //                TagDesc = "no description",
-        //                TagId = new Guid(),
-        //                TagName = "no name",
-        //                TagProbability = 1
-        //            }
-        //        }, JsonRequestBehavior.AllowGet);
-        //    }
-        //}
+        [Route("checkimageurl")]
+        public ActionResult CheckImageUrl()
+        {
+            string imgUrl = Request["img"];
+            if (!string.IsNullOrEmpty(imgUrl))
+            {
+                var webClient = new WebClient();
+                webClient.Credentials = new NetworkCredential("bb@M365x338761.onmicrosoft.com", "xxl1234!");
+                byte[] imageBytes = webClient.DownloadData(imgUrl);
+
+                return Json(CheckImageData(imageBytes), JsonRequestBehavior.AllowGet);
+            }
+            else
+            {
+                return Json(new List<TagPrediction>()
+                {
+                    new TagPrediction()
+                    {
+                        TagDesc = "no description",
+                        TagId = new Guid(),
+                        TagName = "no name",
+                        TagProbability = 1
+                    }
+                }, JsonRequestBehavior.AllowGet);
+            }
+        }
 
         [Route("addimage")]
         public void AddImage(string data)
