@@ -17,6 +17,9 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
     [Serializable]
     public class EchoDialog : IDialog<object>
     {
+        private const string VIS_COG_URL = "http://whocanfixitapp.azurewebsites.net";
+        private const string VIS_COG_CHECK = "/CheckImage";
+        private const string VIS_COG_ADD = "/AddImage";
 
         public const string LUIS_URL = "https://westus.api.cognitive.microsoft.com/luis/v2.0/apps/a53891ff-21a9-4484-b9c5-bd624ea755c8?spellCheck=true&bing-spell-check-subscription-key=%7B4c880a82a88a481cb7fb555fba560250%7D&verbose=true&timezoneOffset=-360&subscription-key=c435e337eea04d12b113f4d30e394dea&q=";
         protected int count = 1;
