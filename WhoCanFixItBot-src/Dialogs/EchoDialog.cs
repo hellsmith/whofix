@@ -10,12 +10,21 @@ using System.Collections.Generic;
 using System.Net;
 using System.IO;
 using Newtonsoft.Json;
+using Microsoft.Azure.CognitiveServices.Vision.CustomVision.Prediction;
+using Microsoft.Azure.CognitiveServices.Vision.CustomVision.Prediction.Models;
+using Microsoft.Azure.CognitiveServices.Vision.CustomVision.Training.Models;
+using Microsoft.Azure.CognitiveServices.Vision.CustomVision.Training;
 
 namespace Microsoft.Bot.Sample.SimpleEchoBot
 {
     [Serializable]
     public class EchoDialog : IDialog<object>
     {
+        private const string trainingKey = "<your training key here>";
+        private const string predictionKey = "<your prediction key here>";
+        private static Guid PROJECT_ID = new Guid("WhoCanFixIt");
+        private const string VISION_ENDPOINT = "";
+        private const string PUBLISHED_MODEL_NAME = "";
 
         public const string LUIS_URL = "https://westus.api.cognitive.microsoft.com/luis/v2.0/apps/a53891ff-21a9-4484-b9c5-bd624ea755c8?spellCheck=true&bing-spell-check-subscription-key=%7B4c880a82a88a481cb7fb555fba560250%7D&verbose=true&timezoneOffset=-360&subscription-key=c435e337eea04d12b113f4d30e394dea&q=";
         protected int count = 1;
@@ -115,5 +124,47 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
             context.Wait(MessageReceivedAsync);
         }
 
+        public void AddImage(List<Tag> tags,byte[] imgBytes)
+        {
+            // Create the Api, passing in the training key
+            CustomVisionTrainingClient trainingApi = new CustomVisionTrainingClient()
+            {
+                ApiKey = trainingKey,
+                Endpoint = VISION_ENDPOINT
+            };
+
+            var project = trainingApi.GetProject(PROJECT_ID);
+
+            List<Guid> tagIds = new List<Guid>();
+
+            foreach(var tag in tags)
+            {
+                tagIds.Add(tag.Id);
+            }
+
+            // Images can be uploaded one at a time
+            using (var stream = new MemoryStream(imgBytes))
+            {
+                trainingApi.CreateImagesFromData(project.Id, stream, tagIds);
+            }
+        }
+
+        public IList<PredictionModel> CheckImage(byte [] imgBytes)
+        {
+            // Create a prediction endpoint, passing in obtained prediction key
+            CustomVisionPredictionClient endpoint = new CustomVisionPredictionClient()
+            {
+                ApiKey = predictionKey,
+                Endpoint = VISION_ENDPOINT
+            };
+
+            using (MemoryStream mem = new MemoryStream(imgBytes))
+            {
+                // Make a prediction against the new project
+                var result = endpoint.DetectImage(PROJECT_ID, PUBLISHED_MODEL_NAME,mem);
+
+                return result.Predictions;
+            }
+        }
     }
 }
