@@ -34,7 +34,8 @@ namespace D365Api
             }
 
             var meineSkills = GetFromApi(skillname);
-            var jsonString = JsonConvert.SerializeObject(meineSkills);
+            //var jsonString = JsonConvert.SerializeObject(meineSkills);
+            var jsonString = meineSkills
 
             return skillname == null
                 ? req.CreateResponse(HttpStatusCode.BadRequest, "Please pass a 'skillname' on the query string or in the request body")
@@ -63,7 +64,10 @@ namespace D365Api
                     <attribute name='value' />
                   </link-entity>
                 </link-entity>
-              </entity>
+                <link-entity name='systemuser' from='systemuserid' to='userid' >
+                    <attribute name='internalemailaddress' />
+                </link-entity>
+             </entity>
             </fetch>";
             var en = crmService.RetrieveMultiple(new FetchExpression(fetchXml)).Entities;
             var result = en.Select(x => new UserWithSkill()
@@ -72,8 +76,6 @@ namespace D365Api
                 Level = x.GetAliasedValue<int>("level.value"),
                 Skillname = x.GetAliasedValue<string>("skill.name")
             });
-
-
             return result;
         }
 
