@@ -37,26 +37,8 @@ namespace D365Api
             var jsonString = JsonConvert.SerializeObject(meineSkills);
 
             return skillname == null
-                ? req.CreateResponse(HttpStatusCode.BadRequest, "Please pass a name on the query string or in the request body")
+                ? req.CreateResponse(HttpStatusCode.BadRequest, "Please pass a 'skillname' on the query string or in the request body")
                 : req.CreateResponse(HttpStatusCode.OK, jsonString);
-        }
-
-        public class UserWithSkill
-        {
-            public string Username { get; set; }
-            public int Level { get; set; }
-            public string skillname { get; set; }
-
-            public UserWithSkill(string username, int level, string skillname)
-            {
-                this.Username = username;
-                this.Level = level;
-                this.skillname = skillname;
-            }
-
-            public UserWithSkill()
-            {
-            }
         }
 
         public static IEnumerable<UserWithSkill> GetFromApi(string skillname)
@@ -83,16 +65,34 @@ namespace D365Api
                 </link-entity>
               </entity>
             </fetch>";
-
-            var result = crmService.RetrieveMultiple(new FetchExpression(fetchXml)).Entities.Select(x => new UserWithSkill()
+            var en = crmService.RetrieveMultiple(new FetchExpression(fetchXml)).Entities;
+            var result = en.Select(x => new UserWithSkill()
             {
                 Username = x.GetAttributeValue<string>("name"),
-                Level = x.GetAttributeValue<int>("level"),
-                skillname = x.GetAttributeValue<string>("skill")
+                Level = x.GetAliasedValue<int>("level.value"),
+                Skillname = x.GetAliasedValue<string>("skill.name")
             });
 
 
             return result;
+        }
+
+        public class UserWithSkill
+        {
+            public string Username { get; set; }
+            public int Level { get; set; }
+            public string Skillname { get; set; }
+
+            public UserWithSkill(string username, int level, string skillname)
+            {
+                this.Username = username;
+                this.Level = level;
+                this.Skillname = skillname;
+            }
+
+            public UserWithSkill()
+            {
+            }
         }
     }
 }
