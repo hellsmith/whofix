@@ -61,9 +61,9 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
                     var webClient = new WebClient();
                     byte[] imageBytes = webClient.DownloadData(url);
 
-                    string base64String = Convert.ToBase64String(imageBytes);
+                    //string base64String = Convert.ToBase64String(imageBytes);
 
-                    List<TagPrediction> predictions = GetImageRawData(base64String);
+                    List<TagPrediction> predictions = GetImageRawData(imageBytes);
                     tags = predictions.Select(i => i.TagName).ToList();
 
                     context.ConversationData.SetValue<List<string>>("tags", tags);
@@ -242,64 +242,39 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
         }
 
 
-        private List<TagPrediction> GetImageRawData(string base64string)
+        private List<TagPrediction> GetImageRawData(byte[] rawData)
         {
             List<TagPrediction> results = new List<TagPrediction>();
-            //HttpClient client = new HttpClient();
-            ////
-            //// Update port # in the following line.
-            //client.BaseAddress = new Uri(VIS_COG_URL + "/");
-            //client.DefaultRequestHeaders.Accept.Clear();
-            //client.DefaultRequestHeaders.Accept.Add(
-            //    new MediaTypeWithQualityHeaderValue("application/json"));
-            //var task = sendBase64Image(base64string, client);
-            //task.Start();
-            //task.Wait();
-            //
-            //var b = task.Result;
+
             try
             {
+                var dataStr = Convert.ToBase64String(rawData);
+                var postData = Encoding.ASCII.GetBytes("data=" + dataStr);
+                HttpWebRequest request = (HttpWebRequest)WebRequest.Create(VIS_COG_URL + VIS_COG_CHECK);
+                request.ContentType = "application/x-www-form-urlencoded";
+                request.Method = "POST";
 
-                if (!string.IsNullOrWhiteSpace(base64string))
+                using (var stream = request.GetRequestStream())
                 {
-
-                    var postData = "data=" + base64string;
-                    byte[] data = Encoding.ASCII.GetBytes(postData);
-
-                    HttpWebRequest request = (HttpWebRequest)WebRequest.Create(VIS_COG_URL + VIS_COG_CHECK);
-                    request.ContentType = "application/x-www-form-urlencoded";
-                    request.Method = "POST";
-
-                    using (var stream = request.GetRequestStream())
-                    {
-                        stream.Write(data, 0, data.Length);
-                    }
-
-                    string result = "";
-
-                    using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
-                    using (Stream stream = response.GetResponseStream())
-                    using (StreamReader reader = new StreamReader(stream))
-                    {
-                        result = reader.ReadToEnd();
-                    }
-
-                    results = (JsonConvert.DeserializeObject<List<TagPrediction>>(result));
-
-                    //foreach (dynamic ob in results)
-                    //{
-                    //    predictions.Add(new TagPrediction()
-                    //    {
-                    //        TagName = ob.TagName,
-
-                    //    });
-                    //}
-
+                    stream.Write(postData, 0, postData.Length);
                 }
+
+                string result = "";
+
+                using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
+                using (Stream stream = response.GetResponseStream())
+                using (StreamReader reader = new StreamReader(stream))
+                {
+                    result = reader.ReadToEnd();
+                }
+
+                results = (JsonConvert.DeserializeObject<List<TagPrediction>>(result));
+
+
             }
             catch (Exception e)
             {
-                return new List<TagPrediction>() { new TagPrediction() { TagName = e.ToString()} };
+                return new List<TagPrediction>() { new TagPrediction() { TagName = e.ToString() } };
             }
             return results;
         }
