@@ -63,7 +63,7 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
 
                     //string base64String = Convert.ToBase64String(imageBytes);
 
-                    List<TagPrediction> predictions = GetImageRawData(imageBytes);
+                    List<TagPrediction> predictions = GetImageStuff(url);
                     tags = predictions.Select(i => i.TagName).ToList();
 
                     context.ConversationData.SetValue<List<string>>("tags", tags);
@@ -242,42 +242,45 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
         }
 
 
-        private List<TagPrediction> GetImageRawData(byte[] rawData)
-        {
-            List<TagPrediction> results = new List<TagPrediction>();
+        //private async Task<List<TagPrediction>> GetImageRawData(byte[] rawData)
+        //{
+        //    List<TagPrediction> results = new List<TagPrediction>();
 
-            try
-            {
-                var dataStr = Convert.ToBase64String(rawData);
-                var postData = Encoding.ASCII.GetBytes("data=" + dataStr);
-                HttpWebRequest request = (HttpWebRequest)WebRequest.Create(VIS_COG_URL + VIS_COG_CHECK);
-                request.ContentType = "application/x-www-form-urlencoded";
-                request.Method = "POST";
+        //    try
+        //    {
+        //        var result = await LoadPredictions(rawData);
 
-                using (var stream = request.GetRequestStream())
-                {
-                    stream.Write(postData, 0, postData.Length);
-                }
+        //        //LoadPredictions
+        //        //var dataStr = Convert.ToBase64String(rawData);
+        //        //var postData = Encoding.ASCII.GetBytes("data=" + dataStr);
+        //        //HttpWebRequest request = (HttpWebRequest)WebRequest.Create(VIS_COG_URL + VIS_COG_CHECK);
+        //        //request.ContentType = "application/x-www-form-urlencoded";
+        //        //request.Method = "POST";
 
-                string result = "";
+        //        //using (var stream = request.GetRequestStream())
+        //        //{
+        //        //    stream.Write(postData, 0, postData.Length);
+        //        //}
 
-                using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
-                using (Stream stream = response.GetResponseStream())
-                using (StreamReader reader = new StreamReader(stream))
-                {
-                    result = reader.ReadToEnd();
-                }
+        //        //string result = "";
 
-                results = (JsonConvert.DeserializeObject<List<TagPrediction>>(result));
+        //        //using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
+        //        //using (Stream stream = response.GetResponseStream())
+        //        //using (StreamReader reader = new StreamReader(stream))
+        //        //{
+        //        //    result = reader.ReadToEnd();
+        //        //}
+
+        //        //results = (JsonConvert.DeserializeObject<List<TagPrediction>>(result));
 
 
-            }
-            catch (Exception e)
-            {
-                return new List<TagPrediction>() { new TagPrediction() { TagName = e.ToString() } };
-            }
-            return results;
-        }
+        //    }
+        //    catch (Exception e)
+        //    {
+        //        return new List<TagPrediction>() { new TagPrediction() { TagName = e.ToString() } };
+        //    }
+        //    return results;
+        //}
 
         private static async Task<string> sendBase64Image(string base64string, HttpClient client)
         {
@@ -312,6 +315,37 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
                     entities.Add(entity);
                 }
 
+            }
+            return entities;
+        }
+
+        private List<TagPrediction> GetImageStuff(string url)
+        {
+            List<TagPrediction> entities = new List<TagPrediction>();
+
+            if (!string.IsNullOrWhiteSpace(url))
+            {
+                HttpWebRequest request = (HttpWebRequest)WebRequest.Create(VIS_COG_URL + "/checkimageurl?img=" + Uri.EscapeUriString(url));
+
+                string result = "";
+
+                try
+                {
+                    using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
+                    using (Stream stream = response.GetResponseStream())
+                    using (StreamReader reader = new StreamReader(stream))
+                    {
+                        result = reader.ReadToEnd();
+                    }
+
+                    entities = JsonConvert.DeserializeObject<List<TagPrediction>>(result);
+                }
+                catch (Exception e)
+                {
+
+                    
+                }
+                
             }
             return entities;
         }
@@ -404,26 +438,28 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
             context.Wait(MessageReceivedAsync);
         }
 
-        public async Task<List<TagPrediction>> LoadPredictions(byte [] image)
-        {
-            using (var client = new HttpClient())
-            {
-                using (var content =
-                    new MultipartFormDataContent("Upload----" + DateTime.Now.ToString(CultureInfo.InvariantCulture)))
-                {
-                    content.Add(new StreamContent(new MemoryStream(image)),"data");
+        //public async Task<List<TagPrediction>> LoadPredictions(byte[] image)
+        //{
+        //    using (var client = new HttpClient())
+        //    {
+        //        using (var content =
+        //            new MultipartFormDataContent("Upload----" + DateTime.Now.ToString(CultureInfo.InvariantCulture)))
+        //        {
+        //            string base64 = System.Convert.ToBase64String(image);
+        //            var content = new HttpContent();
+        //            content.
+        //            content.Add(
 
-                    using (
-                       var message =
-                           await client.PostAsync(VIS_COG_URL + VIS_COG_CHECK, content))
-                    {
-                        var input = await message.Content.ReadAsStringAsync();
+        //            using (
+        //               var message = await client.PostAsync(VIS_COG_URL + VIS_COG_CHECK, content))
+        //            {
+        //                var input = await message.Content.ReadAsStringAsync();
 
-                        return JsonConvert.DeserializeObject<List<TagPrediction>>(input);
-                    }
-                }
-            }
-        }
+        //                return JsonConvert.DeserializeObject<List<TagPrediction>>(input);
+        //            }
+        //        }
+        //    }
+        //}
 
         private void SendPositiveTextFeedback(List<string> tags, string textinput)
         {
