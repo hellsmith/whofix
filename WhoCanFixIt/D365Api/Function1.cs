@@ -15,8 +15,7 @@ namespace D365Api
 {
     public static class Skills
     {
-        const string crmconnectionString = "AuthType=Office365;Url=https://m365x338761.crm4.dynamics.com/;UserName=ta@M365x338761.onmicrosoft.com;Password=xxl1234!";
-
+        public const string CrmConnectionString = "AuthType=Office365;Url=https://m365x338761.crm4.dynamics.com/;UserName=ta@M365x338761.onmicrosoft.com;Password=xxl1234!";
         [FunctionName("GetSkills")]
         public static async Task<HttpResponseMessage> Run([HttpTrigger(AuthorizationLevel.Function, "get", "post", Route = null)]HttpRequestMessage req, TraceWriter log)
         {         
@@ -41,12 +40,12 @@ namespace D365Api
                 ? req.CreateResponse(HttpStatusCode.BadRequest, "Please pass a name on the query string or in the request body")
                 : req.CreateResponse(HttpStatusCode.OK, "Hello. Your Name:" + name + ". Die Benutzer sind: " + String.Join(", ", meineSkills));
         }
- 
+
         public static IEnumerable<string> GetSkills()
         {
             var result = new List<string>();
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
-            CrmServiceClient client = new CrmServiceClient(crmconnectionString);
+            CrmServiceClient client = new CrmServiceClient(CrmConnectionString);
 
             var crmService = client.OrganizationServiceProxy;
 
@@ -69,6 +68,26 @@ namespace D365Api
               </entity>
             </fetch>";
             return crmService.RetrieveMultiple(new FetchExpression(fetchXml)).Entities.Select(x => x.GetAttributeValue<string>("name"));
+        }
+
+        
+
+        public class UserWithSkill
+        {
+            public string Username { get; set; }
+            public int Level { get; set; }
+            public string skillname { get; set; }
+
+            public UserWithSkill(string username, int level, string skillname)
+            {
+                this.Username = username;
+                this.Level = level;
+                this.skillname = skillname;
+            }
+
+            public UserWithSkill()
+            {
+            }
         }
     }
 }
