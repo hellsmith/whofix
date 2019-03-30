@@ -24,11 +24,10 @@ namespace Microsoft.Teams.Samples.HelloWorld.Web.Controllers
         private const string predictionKey = "91fa8c7baf2347b09b05e3c05254bc27";
         private const string resourceId = "/subscriptions/9981a4ee-be32-4cf7-939a-9e13ab373b8f/resourceGroups/rg_WhoCanFixIt/providers/Microsoft.CognitiveServices/accounts/fixit-vision-api-key";
         private static Guid PROJECT_ID = new Guid("743035e8-4a5a-4f6e-ae4e-97b9e8b95f81");
-        //private const string endpointUrl = "https://westeurope.api.cognitive.microsoft.com/customvision/v3.0/";
         private const string endpointUrl = "https://westeurope.api.cognitive.microsoft.com";
         private const string trainingEndPointUrl = "Training/";
         private const string predictionEndPointUrl = "Prediction/";
-        private const string PUBLISHED_MODEL_NAME = "Iteration 1";
+        private const string PUBLISHED_MODEL_NAME = "Iteration2";
 
         private static MemoryStream testImage;
 
@@ -147,8 +146,11 @@ namespace Microsoft.Teams.Samples.HelloWorld.Web.Controllers
         {
             byte[] img = null;
 
+            
+
             if (!string.IsNullOrEmpty(data))
             {
+                data = data.Substring(5);
                 img = Convert.FromBase64String(data);
             }
 
@@ -158,7 +160,16 @@ namespace Microsoft.Teams.Samples.HelloWorld.Web.Controllers
             }
             else
             {
-                return Json("img data is null", JsonRequestBehavior.AllowGet);
+                return Json(new List<TagPrediction>()
+                {
+                    new TagPrediction()
+                    {
+                        TagDesc = "no description",
+                        TagId = new Guid(),
+                        TagName = "no name",
+                        TagProbability = 1
+                    }
+                }, JsonRequestBehavior.AllowGet);
             }
         }
 
@@ -211,7 +222,7 @@ namespace Microsoft.Teams.Samples.HelloWorld.Web.Controllers
             using (MemoryStream mem = new MemoryStream(imgBytes))
             {
                 // Make a prediction against the new project
-                var result = endpoint.DetectImage(PROJECT_ID, PUBLISHED_MODEL_NAME, mem);
+                var result = endpoint.ClassifyImage(PROJECT_ID, PUBLISHED_MODEL_NAME, mem);
 
                 List<TagPrediction> predicts = new List<TagPrediction>();
                 

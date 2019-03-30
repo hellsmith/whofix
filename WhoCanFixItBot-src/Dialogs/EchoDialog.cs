@@ -12,6 +12,7 @@ using System.IO;
 using Newtonsoft.Json;
 using AdaptiveCards;
 using System.Linq;
+using SimpleEchoBot.Models;
 
 namespace Microsoft.Bot.Sample.SimpleEchoBot
 {
@@ -220,6 +221,64 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
             return entities;
         }
 
+        private Attachment CreateTagChoiceResponse(Dictionary<string,List<Tag>> tags)
+        {
+            List<string> choiceIds = new List<string>();
+            List<string> choiceList = new List<string>();
+            foreach (var entry in tags)
+            {
+                List<string> choices = new List<string>();
+                choiceIds.Add("MultiSelect" + entry.Key);
+                choices.Add(@"{
+                        'type': 'TextBlock',
+                        'text': 'Which "+entry.Key+@"?'
+                    },
+                    {
+                        'type': 'Input.ChoiceSet',
+                        'id': 'MultiSelect"+entry.Key+@"',
+                        'value': null,
+                        'choices': ["
+                        );
+
+                foreach (var tag in entry.Value)
+                {
+                    choices.Add("{'title': '" + tag.Name + "', 'value': '" + tag.ID + "'}");
+                }
+                choiceList.Add(string.Join(",", choices));
+
+                choices.Add(@"],
+                        'isMultiSelect': true
+                    }");
+            }
+
+            string json = @"{
+                'type': 'AdaptiveCard',
+                'body': ["
+                    +string.Join(",", choiceList )+
+                @"],
+                'actions': [
+                    {
+                        'type': 'Action.Submit',
+                        'title': 'Submit',
+                        'data': {
+                            'id': 'MultiSelect'
+                        }
+                    }
+                ],
+                '$schema': 'http://adaptivecards.io/schemas/adaptive-card.json',
+                'version': '1.0'
+            }";
+
+            AdaptiveCard card = AdaptiveCard.FromJson(json).Card;
+
+            Attachment attachment = new Attachment()
+            {
+                ContentType = AdaptiveCard.ContentType,
+                Content = card
+            };
+            return attachment;
+        }
+
         public async Task AfterResetAsync(IDialogContext context, IAwaitable<bool> argument)
         {
             var positive = await argument;
@@ -269,9 +328,57 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
         {
             throw new NotImplementedException();
         }
+
+        public Dictionary<string, List<Tag>> FindMultiples(List<TagPrediction> predictions)
+        {
+            Dictionary<string, List<Tag>> result = new Dictionary<string, List<Tag>>();
+            Dictionary<string, int> counts = new Dictionary<string, int>();
+
+            foreach (var pred in predictions)
+            {
+                if (pred.TagProbability > 0.5f)
+                {
+                    if (counts.ContainsKey(pred.TagDesc))
+                    {
+                        counts[pred.TagDesc]++;
+                    }
+                    else
+                    {
+                        counts.Add(pred.TagDesc, 1);
+                    }
+                }
+            }
+
+            foreach (var pred in predictions)
+            {
+                if (!string.IsNullOrEmpty(pred.TagDesc))
+                {
+                    if (counts[pred.TagDesc] > 1)
+                    {
+                        if (result.ContainsKey(pred.TagDesc))
+                        {
+                            result[pred.TagDesc].Add(new Tag()
+                            {
+                                ID = pred.TagId,
+                                Name = pred.TagName
+                            });
+                        }
+                        else
+                        {
+                            result.Add(pred.TagDesc,new List<Tag>(){new Tag()
+                            {
+                                ID = pred.TagId,
+                                Name = pred.TagName
+                            } });
+                        }
+                    }
+                }
+            }
+            
+            return result;
+        }
     }
-
-
+    
     public class Contact
     {
         public string Username { get; set; }

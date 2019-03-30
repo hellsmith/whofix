@@ -192,6 +192,7 @@
     </Compile>
     <Compile Include="MessageExtension.cs" />
     <Compile Include="Models\TagConfig.cs" />
+    <Compile Include="Models\TagPrediction.cs" />
     <Compile Include="Models\TagResponse.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
