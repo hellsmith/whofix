@@ -13,15 +13,10 @@ namespace TrainModel
     public class TrainImpl
     {
         Uri endpoint = null;
-        const string crmconnectionString = "AuthType=Office365;Url=https://m365x338761.crm4.dynamics.com/;UserName=ta@M365x338761.onmicrosoft.com;Password=xxl1234!";
+        const string crmconnectionString = "AuthType=Office365;Url=https://m365x338761.crm4.dynamics.com/;UserName=kl@M365x338761.onmicrosoft.com;Password=xxl1234!";
         public TrainImpl(Uri endpoint)
         {
             this.endpoint = endpoint;
-        }
-
-        public void Train (IEnumerable<string> skills)
-        {
-
         }
 
         public List<string> GetSkills()

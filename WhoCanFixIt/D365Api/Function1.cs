@@ -8,6 +8,7 @@ using Microsoft.Azure.WebJobs;
 using Microsoft.Azure.WebJobs.Extensions.Http;
 using Microsoft.Azure.WebJobs.Host;
 using Microsoft.Crm.Sdk.Messages;
+using Microsoft.Xrm.Sdk.Query;
 using Microsoft.Xrm.Tooling.Connector;
 
 namespace D365Api
@@ -34,13 +35,14 @@ namespace D365Api
                 name = data?.name;
             }
 
-            var meinBenutzer = GetSkills();
+            var meineSkills = GetSkills();
 
             return name == null
                 ? req.CreateResponse(HttpStatusCode.BadRequest, "Please pass a name on the query string or in the request body")
-                : req.CreateResponse(HttpStatusCode.OK, "Hello. Your Name:" + name + ". Die Benutzer sind: " + String.Join(", ", meinBenutzer));
+                : req.CreateResponse(HttpStatusCode.OK, "Hello. Your Name:" + name + ". Die Benutzer sind: " + String.Join(", ", meineSkills));
         }
-        public static List<string> GetSkills()
+ 
+        public static IEnumerable<string> GetSkills()
         {
             var result = new List<string>();
             ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
@@ -48,10 +50,25 @@ namespace D365Api
 
             var crmService = client.OrganizationServiceProxy;
 
-            WhoAmIRequest who = new WhoAmIRequest();
-            WhoAmIResponse whoResp = (WhoAmIResponse)crmService.Execute(who);
-            result.Add(whoResp.UserId.ToString());
-            return result;
+
+            var fetchData = new
+            {
+                characteristictype = "1"
+            };
+            var fetchXml = $@"
+            <fetch version='1.0' output-format='xml-platform' mapping='logical' distinct='false'>
+              <entity name='characteristic'>
+                <attribute name='name' />
+                <attribute name='description' />
+                <attribute name='characteristictype' />
+                <attribute name='characteristicid' />
+                <order attribute='name' descending='false' />
+                <filter type='and'>
+                  <condition attribute='characteristictype' operator='eq' value='{fetchData.characteristictype/*1*/}'/>
+                </filter>
+              </entity>
+            </fetch>";
+            return crmService.RetrieveMultiple(new FetchExpression(fetchXml)).Entities.Select(x => x.GetAttributeValue<string>("name"));
         }
     }
 }
