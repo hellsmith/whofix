@@ -15,7 +15,7 @@ namespace D365Api
 {
     public static class Skills
     {
-        public const string CrmConnectionString = "AuthType=Office365;Url=https://m365x338761.crm4.dynamics.com/;UserName=ta@M365x338761.onmicrosoft.com;Password=xxl1234!";
+        public const string CrmConnectionString = "AuthType=Office365;Url=https://m365x338761.crm4.dynamics.com/;UserName=kl@M365x338761.onmicrosoft.com;Password=xxl1234!";
         [FunctionName("GetSkills")]
         public static async Task<HttpResponseMessage> Run([HttpTrigger(AuthorizationLevel.Function, "get", "post", Route = null)]HttpRequestMessage req, TraceWriter log)
         {         
@@ -49,11 +49,6 @@ namespace D365Api
 
             var crmService = client.OrganizationServiceProxy;
 
-
-            var fetchData = new
-            {
-                characteristictype = "1"
-            };
             var fetchXml = $@"
             <fetch version='1.0' output-format='xml-platform' mapping='logical' distinct='false'>
               <entity name='characteristic'>
@@ -63,7 +58,7 @@ namespace D365Api
                 <attribute name='characteristicid' />
                 <order attribute='name' descending='false' />
                 <filter type='and'>
-                  <condition attribute='characteristictype' operator='eq' value='{fetchData.characteristictype/*1*/}'/>
+                  <condition attribute='characteristictype' operator='eq' value='1'/>
                 </filter>
               </entity>
             </fetch>";
