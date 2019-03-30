@@ -10,24 +10,22 @@ using System.Collections.Generic;
 using System.Net;
 using System.IO;
 using Newtonsoft.Json;
-using Microsoft.Azure.CognitiveServices.Vision.CustomVision.Prediction;
-using Microsoft.Azure.CognitiveServices.Vision.CustomVision.Prediction.Models;
-using Microsoft.Azure.CognitiveServices.Vision.CustomVision.Training.Models;
-using Microsoft.Azure.CognitiveServices.Vision.CustomVision.Training;
 using AdaptiveCards;
+using System.Linq;
+using SimpleEchoBot.Models;
+using System.Net.Http.Headers;
+using System.Web;
+using SimpleEchoBot.Models;
+using System.Globalization;
 
-namespace Microsoft.Bot.Sample.SimpleEchoBot
-{
+namespace Microsoft.Bot.Sample.SimpleEchoBot {
     [Serializable]
-    public class EchoDialog : IDialog<object>
-    {
-        private const string trainingKey = "12faac6f180a4e1e9053133826b3f188";
-        private const string predictionKey = "91fa8c7baf2347b09b05e3c05254bc27";
-        private const string resourceId = "/subscriptions/9981a4ee-be32-4cf7-939a-9e13ab373b8f/resourceGroups/rg_WhoCanFixIt/providers/Microsoft.CognitiveServices/accounts/fixit-vision-api-key";
-        private static Guid PROJECT_ID = new Guid("743035e8-4a5a-4f6e-ae4e-97b9e8b95f81");
-        private const string endpointUrl = "https://westeurope.api.cognitive.microsoft.com";
-        private const string PUBLISHED_MODEL_NAME = "Iteration 1";
+    public class EchoDialog : IDialog<object> {
+        private const string VIS_COG_URL = "http://whocanfixitapp.azurewebsites.net";
+        private const string VIS_COG_CHECK = "/CheckImage";
+        private const string VIS_COG_ADD = "/AddImage";
 
+        public const string DYN_URL = "https://d365api20190330083214.azurewebsites.net/api/GetUserBySkill?code=Yas/x2o0YxaiW05Y2HXCLi0yhkicYfgKvMmfQHM/m3KzXesYd5JUAg==&skillname=";
         public const string LUIS_URL = "https://westus.api.cognitive.microsoft.com/luis/v2.0/apps/a53891ff-21a9-4484-b9c5-bd624ea755c8?spellCheck=true&bing-spell-check-subscription-key=%7B4c880a82a88a481cb7fb555fba560250%7D&verbose=true&timezoneOffset=-360&subscription-key=c435e337eea04d12b113f4d30e394dea&q=";
         protected int count = 1;
 
@@ -61,39 +59,50 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
                     var webClient = new WebClient();
                     byte[] imageBytes = webClient.DownloadData(url);
 
+                    //string base64String = Convert.ToBase64String(imageBytes);
 
-                    tags = GetTextRawData(attachment.ContentUrl);
+                    List<TagPrediction> predictions = await GetImageRawData(imageBytes);
+                    tags = predictions.Select(i => i.TagName).ToList();
 
                     context.ConversationData.SetValue<List<string>>("tags", tags);
                     context.ConversationData.SetValue<string>("image", attachment.ContentUrl);
                     context.ConversationData.SetValue<string>("textinput", "");
 
-                    PromptDialog.Confirm(context, AfterResetAsync, "that's what I got: " + String.Join(", ", tags), promptStyle: PromptStyle.Auto);
+                    var replyMessage = context.MakeMessage();
+                    Attachment cardAttachment = CreateTagChoiceAdapativecard(tags);
+                    replyMessage.Attachments = new List<Attachment> { cardAttachment };
+
+                    await context.PostAsync(replyMessage);
                 }
                 else if (!string.IsNullOrWhiteSpace(message.Text))
                 {
                     tags = GetTextRawData(message.Text);
-                    tags = new List<string>() { "a", "b", "c" };
 
                     context.ConversationData.SetValue<List<string>>("tags", tags);
                     context.ConversationData.SetValue<string>("textinput", message.Text);
                     context.ConversationData.SetValue<string>("image", "");
-                    //PromptDialog.Choice<string>(context, AfterSelectAsync, tags, "Which tags match your input?");
-
 
                     var replyMessage = context.MakeMessage();
-                    Attachment attachment = CreateTagChoiceAdapativecard(tags);
-                    replyMessage.Attachments = new List<Attachment> { attachment };
+                    Attachment cardAttachment = CreateTagChoiceAdapativecard(tags);
+                    replyMessage.Attachments = new List<Attachment> { cardAttachment };
 
 
                     await context.PostAsync(replyMessage);
 
 
-                    //PromptDialog.Confirm(context, AfterResetAsync, "that's what I got: " + String.Join(", ", tags), promptStyle: PromptStyle.Auto);
                 }
-                else
+                else if (message.Value != null)
                 {
-                    await context.PostAsync("Sorry, I could not get any information out of your message. Please try another input.");
+                    dynamic value = message.Value;
+
+                    string skillsString = ((JObject)value).GetValue("MultiSelectVal").ToString();
+                    string[] skills = skillsString.Split(',');
+
+
+
+                    List<Contact> contacts = GetDynamicsData(skills.ToList());
+
+                    await context.PostAsync(string.Join(", ", contacts.Select(i => i.Username)));
                     context.Wait(MessageReceivedAsync);
                 }
             }
@@ -103,7 +112,7 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
         private Attachment CreateTagChoiceAdapativecard(List<string> tags)
         {
             List<string> choices = new List<string>();
-            foreach(string tag in tags)
+            foreach (string tag in tags)
             {
                 choices.Add("{'title': '" + tag + "', 'value': '" + tag + "'}");
             }
@@ -120,7 +129,7 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
                         'id': 'MultiSelectVal',
                         'value': null,
                         'choices': [" +
-                        string.Join(",", choices) + 
+                        string.Join(",", choices) +
                         @"],
                         'isMultiSelect': true
                     }
@@ -130,7 +139,7 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
                         'type': 'Action.Submit',
                         'title': 'Submit',
                         'data': {
-                            'id': '1234567890'
+                            'id': 'MultiSelectVal'
                         }
                     }
                 ],
@@ -148,9 +157,134 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
             return attachment;
         }
 
-        private Task AfterSelectAsync(IDialogContext context, IAwaitable<string> result)
+        private Attachment CreateContactsCard(List<Contact> contacts)
         {
-            throw new NotImplementedException();
+            List<string> choices = new List<string>();
+            foreach (Contact contact in contacts)
+            {
+                choices.Add("{'title': '" + contact + "', 'value': '" + contact + "'}");
+            }
+
+            string json = @"{
+                'type': 'AdaptiveCard',
+                'body': [
+                    {
+                        'type': 'TextBlock',
+                        'text': 'Which tag matches your query?'
+                    },
+                    {
+                        'type': 'Input.ChoiceSet',
+                        'id': 'MultiSelectVal',
+                        'value': null,
+                        'choices': [" +
+                        string.Join(",", choices) +
+                        @"],
+                        'isMultiSelect': true
+                    }
+                ],
+                'actions': [
+                    {
+                        'type': 'Action.Submit',
+                        'title': 'Submit',
+                        'data': {
+                            'id': 'MultiSelectVal'
+                        }
+                    }
+                ],
+                '$schema': 'http://adaptivecards.io/schemas/adaptive-card.json',
+                'version': '1.0'
+            }";
+
+            AdaptiveCard card = AdaptiveCard.FromJson(json).Card;
+
+            Attachment attachment = new Attachment()
+            {
+                ContentType = AdaptiveCard.ContentType,
+                Content = card
+            };
+            return attachment;
+        }
+
+
+        private List<Contact> GetDynamicsData(List<string> tags)
+        {
+            List<Contact> contacts = new List<Contact>();
+
+            if (tags.Count > 0)
+            {
+                HttpWebRequest request = (HttpWebRequest)WebRequest.Create(DYN_URL + Uri.EscapeDataString(tags[0]));
+
+                string result = "";
+
+                using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
+                using (Stream stream = response.GetResponseStream())
+                using (StreamReader reader = new StreamReader(stream))
+                {
+                    result = reader.ReadToEnd();
+                }
+
+                JArray ob = (JArray)JsonConvert.DeserializeObject(result);
+
+                foreach (dynamic entityObject in ob)
+                {
+                    contacts.Add(new Contact()
+                    {
+                        Username = entityObject.Username,
+                        Level = entityObject.Level,
+                        Skillname = entityObject.Skillname
+                    });
+                }
+            }
+
+            return contacts;
+        }
+
+
+        private async Task<List<TagPrediction>> GetImageRawData(byte[] rawData)
+        {
+            List<TagPrediction> results = new List<TagPrediction>();
+
+            try
+            {
+                var result = await LoadPredictions(rawData);
+
+                //LoadPredictions
+                //var dataStr = Convert.ToBase64String(rawData);
+                //var postData = Encoding.ASCII.GetBytes("data=" + dataStr);
+                //HttpWebRequest request = (HttpWebRequest)WebRequest.Create(VIS_COG_URL + VIS_COG_CHECK);
+                //request.ContentType = "application/x-www-form-urlencoded";
+                //request.Method = "POST";
+
+                //using (var stream = request.GetRequestStream())
+                //{
+                //    stream.Write(postData, 0, postData.Length);
+                //}
+
+                //string result = "";
+
+                //using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
+                //using (Stream stream = response.GetResponseStream())
+                //using (StreamReader reader = new StreamReader(stream))
+                //{
+                //    result = reader.ReadToEnd();
+                //}
+
+                //results = (JsonConvert.DeserializeObject<List<TagPrediction>>(result));
+
+
+            }
+            catch (Exception e)
+            {
+                return new List<TagPrediction>() { new TagPrediction() { TagName = e.ToString() } };
+            }
+            return results;
+        }
+
+        private static async Task<string> sendBase64Image(string base64string, HttpClient client)
+        {
+            HttpResponseMessage response = await client.PostAsJsonAsync(
+                            VIS_COG_CHECK.TrimStart('/'), base64string);
+            return await response.Content.ReadAsAsync<string>();
         }
 
         private List<string> GetTextRawData(string inputString)
@@ -183,6 +317,95 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
             return entities;
         }
 
+        private List<TagPrediction> GetImageStuff(string url)
+        {
+            List<TagPrediction> entities = new List<TagPrediction>();
+
+            if (!string.IsNullOrWhiteSpace(url))
+            {
+                HttpWebRequest request = (HttpWebRequest)WebRequest.Create(VIS_COG_URL + "/checkimageurl?img=" + Uri.EscapeUriString(url));
+
+                string result = "";
+
+                try
+                {
+                    using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
+                    using (Stream stream = response.GetResponseStream())
+                    using (StreamReader reader = new StreamReader(stream))
+                    {
+                        result = reader.ReadToEnd();
+                    }
+
+                    entities = JsonConvert.DeserializeObject<List<TagPrediction>>(result);
+                }
+                catch (Exception e)
+                {
+
+
+                }
+
+            }
+            return entities;
+        }
+
+        private Attachment CreateTagChoiceResponse(Dictionary<string, List<Tag>> tags)
+        {
+            List<string> choiceIds = new List<string>();
+            List<string> choiceList = new List<string>();
+            foreach (var entry in tags)
+            {
+                List<string> choices = new List<string>();
+                choiceIds.Add("MultiSelect" + entry.Key);
+                choices.Add(@"{
+                        'type': 'TextBlock',
+                        'text': 'Which " + entry.Key + @"?'
+                    },
+                    {
+                        'type': 'Input.ChoiceSet',
+                        'id': 'MultiSelect" + entry.Key + @"',
+                        'value': null,
+                        'choices': ["
+                        );
+
+                foreach (var tag in entry.Value)
+                {
+                    choices.Add("{'title': '" + tag.Name + "', 'value': '" + tag.ID + "'}");
+                }
+                choiceList.Add(string.Join(",", choices));
+
+                choices.Add(@"],
+                        'isMultiSelect': true
+                    }");
+            }
+
+            string json = @"{
+                'type': 'AdaptiveCard',
+                'body': ["
+                    + string.Join(",", choiceList) +
+                @"],
+                'actions': [
+                    {
+                        'type': 'Action.Submit',
+                        'title': 'Submit',
+                        'data': {
+                            'id': 'MultiSelect'
+                        }
+                    }
+                ],
+                '$schema': 'http://adaptivecards.io/schemas/adaptive-card.json',
+                'version': '1.0'
+            }";
+
+            AdaptiveCard card = AdaptiveCard.FromJson(json).Card;
+
+            Attachment attachment = new Attachment()
+            {
+                ContentType = AdaptiveCard.ContentType,
+                Content = card
+            };
+            return attachment;
+        }
+
         public async Task AfterResetAsync(IDialogContext context, IAwaitable<bool> argument)
         {
             var positive = await argument;
@@ -212,49 +435,25 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
             }
             context.Wait(MessageReceivedAsync);
         }
-        
-        public void AddImage(List<Tag> tags,byte[] imgBytes)
+
+        public async Task<List<TagPrediction>> LoadPredictions(byte[] image)
         {
-            // Create the Api, passing in the training key
-            CustomVisionTrainingClient trainingApi = new CustomVisionTrainingClient()
+            using (var client = new HttpClient())
             {
-                ApiKey = trainingKey,
-                Endpoint = endpointUrl
-            };
+                using (var content = new MultipartFormDataContent())
+                {
+                    content.Add(new StringContent(Convert.ToBase64String(image)), "data");
 
-            var project = trainingApi.GetProject(PROJECT_ID);
+                    using (var message = await client.PostAsync(VIS_COG_URL + VIS_COG_CHECK, content))
+                    {
+                        var input = await message.Content.ReadAsStringAsync();
 
-            List<Guid> tagIds = new List<Guid>();
-
-            foreach(var tag in tags)
-            {
-                tagIds.Add(tag.Id);
-            }
-
-            // Images can be uploaded one at a time
-            using (var stream = new MemoryStream(imgBytes))
-            {
-                trainingApi.CreateImagesFromData(project.Id, stream, tagIds);
+                        return JsonConvert.DeserializeObject<List<TagPrediction>>(input);
+                    }
+                }
             }
         }
 
-        public IList<PredictionModel> CheckImage(byte [] imgBytes)
-        {
-            // Create a prediction endpoint, passing in obtained prediction key
-            CustomVisionPredictionClient endpoint = new CustomVisionPredictionClient()
-            {
-                ApiKey = predictionKey,
-                Endpoint = endpointUrl
-            };
-
-            using (MemoryStream mem = new MemoryStream(imgBytes))
-            {
-                // Make a prediction against the new project
-                var result = endpoint.DetectImage(PROJECT_ID, PUBLISHED_MODEL_NAME,mem);
-                
-                return result.Predictions;
-            }
-        }
         private void SendPositiveTextFeedback(List<string> tags, string textinput)
         {
             throw new NotImplementedException();
@@ -274,5 +473,61 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
         {
             throw new NotImplementedException();
         }
+
+        public Dictionary<string, List<Tag>> FindMultiples(List<TagPrediction> predictions)
+        {
+            Dictionary<string, List<Tag>> result = new Dictionary<string, List<Tag>>();
+            Dictionary<string, int> counts = new Dictionary<string, int>();
+
+            foreach (var pred in predictions)
+            {
+                if (pred.TagProbability > 0.5f)
+                {
+                    if (counts.ContainsKey(pred.TagDesc))
+                    {
+                        counts[pred.TagDesc]++;
+                    }
+                    else
+                    {
+                        counts.Add(pred.TagDesc, 1);
+                    }
+                }
+            }
+
+            foreach (var pred in predictions)
+            {
+                if (!string.IsNullOrEmpty(pred.TagDesc))
+                {
+                    if (counts[pred.TagDesc] > 1)
+                    {
+                        if (result.ContainsKey(pred.TagDesc))
+                        {
+                            result[pred.TagDesc].Add(new Tag()
+                            {
+                                ID = pred.TagId,
+                                Name = pred.TagName
+                            });
+                        }
+                        else
+                        {
+                            result.Add(pred.TagDesc, new List<Tag>(){new Tag()
+                            {
+                                ID = pred.TagId,
+                                Name = pred.TagName
+                            } });
+                        }
+                    }
+                }
+            }
+
+            return result;
+        }
+    }
+
+    public class Contact {
+        public string Username { get; set; }
+        public int Level { get; set; }
+        public string Skillname { get; set; }
+
     }
 }

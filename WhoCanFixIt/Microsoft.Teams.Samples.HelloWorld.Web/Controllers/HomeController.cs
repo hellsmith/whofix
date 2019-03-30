@@ -12,6 +12,9 @@ using System.Threading.Tasks;
 using System.Web;
 using System.Web.Mvc;
 using System.Linq;
+using Microsoft.Azure.CognitiveServices.Vision.CustomVision.Prediction.Models;
+using Microsoft.Teams.Samples.HelloWorld.Web.Models;
+using Newtonsoft.Json;
 
 namespace Microsoft.Teams.Samples.HelloWorld.Web.Controllers
 {
@@ -21,10 +24,10 @@ namespace Microsoft.Teams.Samples.HelloWorld.Web.Controllers
         private const string predictionKey = "91fa8c7baf2347b09b05e3c05254bc27";
         private const string resourceId = "/subscriptions/9981a4ee-be32-4cf7-939a-9e13ab373b8f/resourceGroups/rg_WhoCanFixIt/providers/Microsoft.CognitiveServices/accounts/fixit-vision-api-key";
         private static Guid PROJECT_ID = new Guid("743035e8-4a5a-4f6e-ae4e-97b9e8b95f81");
-        //private const string endpointUrl = "https://westeurope.api.cognitive.microsoft.com/customvision/v3.0/";
         private const string endpointUrl = "https://westeurope.api.cognitive.microsoft.com";
         private const string trainingEndPointUrl = "Training/";
         private const string predictionEndPointUrl = "Prediction/";
+        private const string PUBLISHED_MODEL_NAME = "Iteration2";
 
         private static MemoryStream testImage;
 
@@ -136,6 +139,134 @@ namespace Microsoft.Teams.Samples.HelloWorld.Web.Controllers
                 ViewBag.TagId = "-/-";
             }
             return View();
+        }
+
+        [Route("checkimage")]
+        public ActionResult CheckImage(byte[] data)
+        {
+            //byte[] img = null;
+
+            
+
+            //if (!string.IsNullOrEmpty(img))
+            //{
+            //    data = data.Substring(5);
+            //    img = Convert.FromBase64String(data);
+            //}
+
+            if (data != null && data.Length > 0)
+            {
+                return Json(CheckImageData(data), JsonRequestBehavior.AllowGet);
+            }
+            else
+            {
+                return Json(new List<TagPrediction>()
+                {
+                    new TagPrediction()
+                    {
+                        TagDesc = "no description",
+                        TagId = new Guid(),
+                        TagName = "no name",
+                        TagProbability = 1
+                    }
+                }, JsonRequestBehavior.AllowGet);
+            }
+        }
+
+        [Route("checkimageurl")]
+        public ActionResult CheckImageUrl()
+        {
+            string imgUrl = Request["img"];
+            if (!string.IsNullOrEmpty(imgUrl))
+            {
+                var webClient = new WebClient();
+                webClient.Credentials = new NetworkCredential("bb@M365x338761.onmicrosoft.com", "xxl1234!");
+                byte[] imageBytes = webClient.DownloadData(imgUrl);
+
+                return Json(CheckImageData(imageBytes), JsonRequestBehavior.AllowGet);
+            }
+            else
+            {
+                return Json(new List<TagPrediction>()
+                {
+                    new TagPrediction()
+                    {
+                        TagDesc = "no description",
+                        TagId = new Guid(),
+                        TagName = "no name",
+                        TagProbability = 1
+                    }
+                }, JsonRequestBehavior.AllowGet);
+            }
+        }
+
+        [Route("addimage")]
+        public void AddImage(string data)
+        {
+            TagResponse resp = JsonConvert.DeserializeObject<TagResponse>(data);
+
+            // Create the Api, passing in the training key
+            CustomVisionTrainingClient trainingApi = new CustomVisionTrainingClient()
+            {
+                ApiKey = trainingKey,
+                Endpoint = endpointUrl
+            };
+
+            var project = trainingApi.GetProject(PROJECT_ID);
+
+            byte[] imgBytes = Convert.FromBase64String(resp.ImgBase64);
+
+            foreach(string tagName in resp.TagNames)
+            {
+                var tag = trainingApi.CreateTag(PROJECT_ID, tagName);
+                resp.TagIds.Add(tag.Id);
+            }
+
+            // Images can be uploaded one at a time
+            using (var stream = new MemoryStream(imgBytes))
+            {
+                trainingApi.CreateImagesFromData(project.Id, stream, resp.TagIds);
+            }
+        }
+
+        protected List<TagPrediction> CheckImageData(byte[] imgBytes)
+        {
+            // Create a prediction endpoint, passing in obtained prediction key
+            CustomVisionPredictionClient endpoint = new CustomVisionPredictionClient()
+            {
+                ApiKey = predictionKey,
+                Endpoint = endpointUrl
+            };
+
+            CustomVisionTrainingClient trainingApi = new CustomVisionTrainingClient()
+            {
+                ApiKey = trainingKey,
+                Endpoint = endpointUrl
+            };
+
+            var allTags = trainingApi.GetTags(PROJECT_ID);
+
+            using (MemoryStream mem = new MemoryStream(imgBytes))
+            {
+                // Make a prediction against the new project
+                var result = endpoint.ClassifyImage(PROJECT_ID, PUBLISHED_MODEL_NAME, mem);
+
+                List<TagPrediction> predicts = new List<TagPrediction>();
+                
+                foreach (var entry in result.Predictions)
+                {
+                    Tag tag = allTags.Where(k => k.Id == entry.TagId).First();
+                    predicts.Add(new TagPrediction()
+                    {
+                        TagDesc = tag.Description,
+                        TagId = entry.TagId,
+                        TagName = entry.TagName,
+                        TagProbability = entry.Probability
+                    });
+                }
+
+                return predicts;
+            }
         }
 
         public static async Task<string> MakePredictionRequest(string imageFilePath)
