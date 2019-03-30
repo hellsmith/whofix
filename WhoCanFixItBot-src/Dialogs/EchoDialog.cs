@@ -11,6 +11,7 @@ using System.Net;
 using System.IO;
 using Newtonsoft.Json;
 using AdaptiveCards;
+using System.Linq;
 
 namespace Microsoft.Bot.Sample.SimpleEchoBot
 {
@@ -21,6 +22,7 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
         private const string VIS_COG_CHECK = "/CheckImage";
         private const string VIS_COG_ADD = "/AddImage";
 
+        public const string DYN_URL = "https://d365api20190330083214.azurewebsites.net/api/GetUserBySkill?code=Yas/x2o0YxaiW05Y2HXCLi0yhkicYfgKvMmfQHM/m3KzXesYd5JUAg==&skillname=";
         public const string LUIS_URL = "https://westus.api.cognitive.microsoft.com/luis/v2.0/apps/a53891ff-21a9-4484-b9c5-bd624ea755c8?spellCheck=true&bing-spell-check-subscription-key=%7B4c880a82a88a481cb7fb555fba560250%7D&verbose=true&timezoneOffset=-360&subscription-key=c435e337eea04d12b113f4d30e394dea&q=";
         protected int count = 1;
 
@@ -61,32 +63,41 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
                     context.ConversationData.SetValue<string>("image", attachment.ContentUrl);
                     context.ConversationData.SetValue<string>("textinput", "");
 
-                    PromptDialog.Confirm(context, AfterResetAsync, "that's what I got: " + String.Join(", ", tags), promptStyle: PromptStyle.Auto);
+                    var replyMessage = context.MakeMessage();
+                    Attachment cardAttachment = CreateTagChoiceAdapativecard(tags);
+                    replyMessage.Attachments = new List<Attachment> { cardAttachment };
+
+                    await context.PostAsync(replyMessage);
                 }
                 else if (!string.IsNullOrWhiteSpace(message.Text))
                 {
                     tags = GetTextRawData(message.Text);
-                    tags = new List<string>() { "a", "b", "c" };
 
                     context.ConversationData.SetValue<List<string>>("tags", tags);
                     context.ConversationData.SetValue<string>("textinput", message.Text);
                     context.ConversationData.SetValue<string>("image", "");
-                    //PromptDialog.Choice<string>(context, AfterSelectAsync, tags, "Which tags match your input?");
-
 
                     var replyMessage = context.MakeMessage();
-                    Attachment attachment = CreateTagChoiceAdapativecard(tags);
-                    replyMessage.Attachments = new List<Attachment> { attachment };
-
+                    Attachment cardAttachment = CreateTagChoiceAdapativecard(tags);
+                    replyMessage.Attachments = new List<Attachment> { cardAttachment };
+                    
 
                     await context.PostAsync(replyMessage);
 
 
-                    //PromptDialog.Confirm(context, AfterResetAsync, "that's what I got: " + String.Join(", ", tags), promptStyle: PromptStyle.Auto);
                 }
-                else
+                else if (message.Value != null)
                 {
-                    await context.PostAsync("Sorry, I could not get any information out of your message. Please try another input.");
+                    dynamic value = message.Value;
+
+                    string skillsString = ((JObject)value).GetValue("MultiSelectVal").ToString();
+                    string[] skills = skillsString.Split(',');
+
+                    
+
+                    List<Contact> contacts = GetDynamicsData(skills.ToList());
+
+                    await context.PostAsync(string.Join(", ", contacts.Select(i => i.Username)));
                     context.Wait(MessageReceivedAsync);
                 }
             }
@@ -96,7 +107,7 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
         private Attachment CreateTagChoiceAdapativecard(List<string> tags)
         {
             List<string> choices = new List<string>();
-            foreach(string tag in tags)
+            foreach (string tag in tags)
             {
                 choices.Add("{'title': '" + tag + "', 'value': '" + tag + "'}");
             }
@@ -113,7 +124,7 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
                         'id': 'MultiSelectVal',
                         'value': null,
                         'choices': [" +
-                        string.Join(",", choices) + 
+                        string.Join(",", choices) +
                         @"],
                         'isMultiSelect': true
                     }
@@ -123,7 +134,7 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
                         'type': 'Action.Submit',
                         'title': 'Submit',
                         'data': {
-                            'id': '1234567890'
+                            'id': 'MultiSelectVal'
                         }
                     }
                 ],
@@ -144,6 +155,39 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
         private Task AfterSelectAsync(IDialogContext context, IAwaitable<string> result)
         {
             throw new NotImplementedException();
+        }
+
+        private List<Contact> GetDynamicsData(List<string> tags)
+        {
+            List<Contact> contacts = new List<Contact>();
+            
+            if (tags.Count > 0)
+            {
+                HttpWebRequest request = (HttpWebRequest)WebRequest.Create(DYN_URL + Uri.EscapeDataString(tags[0]));
+
+                string result = "";
+
+                using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
+                using (Stream stream = response.GetResponseStream())
+                using (StreamReader reader = new StreamReader(stream))
+                {
+                    result = reader.ReadToEnd();
+                }
+
+                JArray ob = (JArray)JsonConvert.DeserializeObject(result);
+
+                foreach (dynamic entityObject in ob)
+                {
+                    contacts.Add(new Contact()
+                    {
+                        Username = entityObject.Username,
+                        Level = entityObject.Level,
+                        Skillname = entityObject.Skillname
+                    });
+                }
+            }
+
+            return contacts;
         }
 
         private List<string> GetTextRawData(string inputString)
@@ -225,5 +269,14 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
         {
             throw new NotImplementedException();
         }
+    }
+
+
+    public class Contact
+    {
+        public string Username { get; set; }
+        public int Level { get; set; }
+        public string Skillname { get; set; }
+ 
     }
 }
