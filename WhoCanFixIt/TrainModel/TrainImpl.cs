@@ -28,7 +28,7 @@ namespace TrainModel
         {
             var result = new List<string>();
                ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
-                CrmServiceClient client = new CrmServiceClient(crmconnectionString);
+               CrmServiceClient client = new CrmServiceClient(crmconnectionString);
                 
                 var crmService = client.OrganizationServiceProxy;
 
