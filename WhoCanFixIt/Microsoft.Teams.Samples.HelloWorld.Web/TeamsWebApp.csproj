@@ -226,6 +226,7 @@
     <Content Include="Views\Home\Configure.cshtml" />
     <None Include="Properties\PublishProfiles\WhoCanFixItApp - Web Deploy.pubxml" />
     <Content Include="Views\Home\Predict.cshtml" />
+    <Content Include="Views\Home\Train.cshtml" />
   </ItemGroup>
   <PropertyGroup>
     <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">10.0</VisualStudioVersion>
