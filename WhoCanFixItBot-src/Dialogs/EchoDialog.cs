@@ -12,6 +12,7 @@ using System.IO;
 using Newtonsoft.Json;
 using AdaptiveCards;
 using System.Linq;
+using SimpleEchoBot.Models;
 
 namespace Microsoft.Bot.Sample.SimpleEchoBot
 {
@@ -149,10 +150,54 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
             return attachment;
         }
 
-        private Task AfterSelectAsync(IDialogContext context, IAwaitable<string> result)
+        private Attachment CreateContactsCard(List<Contact> contacts)
         {
-            throw new NotImplementedException();
+            List<string> choices = new List<string>();
+            foreach (Contact contact in contacts)
+            {
+                choices.Add("{'title': '" + contact + "', 'value': '" + contact + "'}");
+            }
+
+            string json = @"{
+                'type': 'AdaptiveCard',
+                'body': [
+                    {
+                        'type': 'TextBlock',
+                        'text': 'Which tag matches your query?'
+                    },
+                    {
+                        'type': 'Input.ChoiceSet',
+                        'id': 'MultiSelectVal',
+                        'value': null,
+                        'choices': [" +
+                        string.Join(",", choices) +
+                        @"],
+                        'isMultiSelect': true
+                    }
+                ],
+                'actions': [
+                    {
+                        'type': 'Action.Submit',
+                        'title': 'Submit',
+                        'data': {
+                            'id': 'MultiSelectVal'
+                        }
+                    }
+                ],
+                '$schema': 'http://adaptivecards.io/schemas/adaptive-card.json',
+                'version': '1.0'
+            }";
+
+            AdaptiveCard card = AdaptiveCard.FromJson(json).Card;
+
+            Attachment attachment = new Attachment()
+            {
+                ContentType = AdaptiveCard.ContentType,
+                Content = card
+            };
+            return attachment;
         }
+
 
         private List<Contact> GetDynamicsData(List<string> tags)
         {
@@ -217,36 +262,6 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
             return entities;
         }
 
-        public async Task AfterResetAsync(IDialogContext context, IAwaitable<bool> argument)
-        {
-            var positive = await argument;
-
-            List<string> tags = context.ConversationData.GetValueOrDefault<List<string>>("tags", new List<string>());
-            string imageUrl = context.ConversationData.GetValueOrDefault<string>("image", "");
-            string textinput = context.ConversationData.GetValueOrDefault<string>("textinput", "");
-
-            if (!string.IsNullOrWhiteSpace(imageUrl))
-            {
-                SendPositiveImageFeedback(tags, imageUrl);
-            }
-            else if (!string.IsNullOrWhiteSpace(textinput))
-            {
-                SendPositiveTextFeedback(tags, textinput);
-            }
-
-            if (positive)
-            {
-                //user was satisfied with the result
-                await context.PostAsync("Thanks for your feedback!");
-            }
-            else
-            {
-                //user was not satisfied
-                await context.PostAsync("I'll do better next time!");
-            }
-            context.Wait(MessageReceivedAsync);
-        }
-
         private void SendPositiveTextFeedback(List<string> tags, string textinput)
         {
             throw new NotImplementedException();
@@ -269,11 +284,5 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
     }
 
 
-    public class Contact
-    {
-        public string Username { get; set; }
-        public int Level { get; set; }
-        public string Skillname { get; set; }
- 
-    }
+    
 }
