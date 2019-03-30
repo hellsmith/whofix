@@ -191,7 +191,7 @@ namespace Microsoft.Teams.Samples.HelloWorld.Web.Controllers
             }
         }
 
-        protected IList<PredictionModel> CheckImageData(byte[] imgBytes)
+        protected List<TagPrediction> CheckImageData(byte[] imgBytes)
         {
             // Create a prediction endpoint, passing in obtained prediction key
             CustomVisionPredictionClient endpoint = new CustomVisionPredictionClient()
@@ -200,12 +200,34 @@ namespace Microsoft.Teams.Samples.HelloWorld.Web.Controllers
                 Endpoint = endpointUrl
             };
 
+            CustomVisionTrainingClient trainingApi = new CustomVisionTrainingClient()
+            {
+                ApiKey = trainingKey,
+                Endpoint = endpointUrl
+            };
+
+            var allTags = trainingApi.GetTags(PROJECT_ID);
+
             using (MemoryStream mem = new MemoryStream(imgBytes))
             {
                 // Make a prediction against the new project
                 var result = endpoint.DetectImage(PROJECT_ID, PUBLISHED_MODEL_NAME, mem);
 
-                return result.Predictions;
+                List<TagPrediction> predicts = new List<TagPrediction>();
+                
+                foreach (var entry in result.Predictions)
+                {
+                    Tag tag = allTags.Where(k => k.Id == entry.TagId).First();
+                    predicts.Add(new TagPrediction()
+                    {
+                        TagDesc = tag.Description,
+                        TagId = entry.TagId,
+                        TagName = entry.TagName,
+                        TagProbability = entry.Probability
+                    });
+                }
+
+                return predicts;
             }
         }
 
