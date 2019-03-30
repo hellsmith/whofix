@@ -123,7 +123,7 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
             }
             context.Wait(MessageReceivedAsync);
         }
-
+        
         public void AddImage(List<Tag> tags,byte[] imgBytes)
         {
             // Create the Api, passing in the training key
@@ -162,7 +162,7 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
             {
                 // Make a prediction against the new project
                 var result = endpoint.DetectImage(PROJECT_ID, PUBLISHED_MODEL_NAME,mem);
-
+                
                 return result.Predictions;
             }
         }

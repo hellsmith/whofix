@@ -11,17 +11,21 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Web;
 using System.Web.Mvc;
+using System.Linq;
 
 namespace Microsoft.Teams.Samples.HelloWorld.Web.Controllers
 {
     public class HomeController : Controller
     {
-        private const string trainingKey = "<your training key here>";
-        private const string predictionKey = "<your prediction key here>";
+        private const string trainingKey = "12faac6f180a4e1e9053133826b3f188";
+        private const string predictionKey = "91fa8c7baf2347b09b05e3c05254bc27";
+        private const string resourceId = "/subscriptions/9981a4ee-be32-4cf7-939a-9e13ab373b8f/resourceGroups/rg_WhoCanFixIt/providers/Microsoft.CognitiveServices/accounts/fixit-vision-api-key";
+        private static Guid PROJECT_ID = new Guid("743035e8-4a5a-4f6e-ae4e-97b9e8b95f81");
+        //private const string endpointUrl = "https://westeurope.api.cognitive.microsoft.com/customvision/v3.0/";
+        private const string endpointUrl = "https://westeurope.api.cognitive.microsoft.com";
+        private const string trainingEndPointUrl = "Training/";
+        private const string predictionEndPointUrl = "Prediction/";
 
-        private static Guid PROJECT_ID = new Guid("WhoCanFixIt");
-        private const string SouthCentralUsEndpoint = "https://southcentralus.api.cognitive.microsoft.com";
-        
         private static MemoryStream testImage;
 
         [Route("")]
@@ -68,9 +72,69 @@ namespace Microsoft.Teams.Samples.HelloWorld.Web.Controllers
             return View();
         }
 
-        public ActionResult Test(IEnumerable<HttpPostedFileBase> files)
+        [Route("TagUpdate"),HttpPost]
+        public ActionResult TagUpdate(string tagid,string type, string description)
         {
+            if (!string.IsNullOrEmpty(tagid))
+            {
+                // Create the Api, passing in the training key
+                CustomVisionTrainingClient trainingApi = new CustomVisionTrainingClient()
+                {
+                    ApiKey = trainingKey,
+                    //Endpoint = endpointUrl + trainingEndPointUrl
+                    Endpoint = endpointUrl
+                };
 
+                var project = trainingApi.GetProject(PROJECT_ID);
+
+                Tag tag = trainingApi.GetTag(project.Id, new Guid(tagid));
+
+                tag.Type = type;
+                tag.Description = description;
+
+                trainingApi.UpdateTag(project.Id, tag.Id, tag);
+            }
+
+            return View();
+        }
+
+        [Route("tagedit")]
+        public ActionResult TagEdit()
+        {
+            string tagName = Request["tagName"];
+
+            if (!string.IsNullOrEmpty(tagName))
+            {
+                // Create the Api, passing in the training key
+                CustomVisionTrainingClient trainingApi = new CustomVisionTrainingClient()
+                {
+                    ApiKey = trainingKey,
+                    //Endpoint = endpointUrl + trainingEndPointUrl,
+                    Endpoint = endpointUrl
+                };
+                
+                IList<Tag> tags = trainingApi.GetTags(PROJECT_ID);
+
+                Tag tag = tags.Where(t => t.Name == tagName).First();
+                if (tag != null)
+                {
+                    ViewBag.TagType = tag.Type;
+                    ViewBag.TagDescr = tag.Description;
+                    ViewBag.TagId = tag.Id;
+                }
+                else
+                {
+                    ViewBag.TagType = "tagName not found";
+                    ViewBag.TagDescr = "-/-";
+                    ViewBag.TagId = "-/-";
+                }
+            }
+            else
+            {
+                ViewBag.TagType = "tagName parameter not set";
+                ViewBag.TagDescr = "-/-";
+                ViewBag.TagId = "-/-";
+            }
             return View();
         }
 
@@ -118,7 +182,7 @@ namespace Microsoft.Teams.Samples.HelloWorld.Web.Controllers
             CustomVisionTrainingClient trainingApi = new CustomVisionTrainingClient()
             {
                 ApiKey = trainingKey,
-                Endpoint = SouthCentralUsEndpoint
+                Endpoint = endpointUrl + trainingEndPointUrl
             };
 
             var project = trainingApi.GetProject(PROJECT_ID);
@@ -133,7 +197,7 @@ namespace Microsoft.Teams.Samples.HelloWorld.Web.Controllers
             CustomVisionTrainingClient trainingApi = new CustomVisionTrainingClient()
             {
                 ApiKey = trainingKey,
-                Endpoint = SouthCentralUsEndpoint
+                Endpoint = endpointUrl + trainingEndPointUrl
             };
 
             var project = trainingApi.GetProject(PROJECT_ID);

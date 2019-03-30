@@ -1,0 +1,19 @@
+﻿
+@{
+	ViewBag.Title = "TagEdit";
+}
+
+<h2>TagEdit</h2>
+
+<form action="TagUpdate" method="post" enctype="multipart/form-data">
+	<label for="tagid">Tag Type:</label>
+	<input type="text" name="tagid" id="tagid" value="@Html.Raw(ViewBag.TagId)"/>
+
+	<label for="type">Tag Type:</label>
+	<input type="text" name="type" id="type" value="@Html.Raw(ViewBag.TagType)" />
+
+	<label for="description">Tag Description:</label>
+	<input type="text" name="description" id="description" value="@Html.Raw(ViewBag.TagDescr)" />
+
+	<input type="submit" />
+</form>
