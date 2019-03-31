@@ -18,9 +18,11 @@ using System.Web;
 using SimpleEchoBot.Models;
 using System.Globalization;
 
-namespace Microsoft.Bot.Sample.SimpleEchoBot {
+namespace Microsoft.Bot.Sample.SimpleEchoBot
+{
     [Serializable]
-    public class EchoDialog : IDialog<object> {
+    public class EchoDialog : IDialog<object>
+    {
         private const string VIS_COG_URL = "http://whocanfixitapp.azurewebsites.net";
         private const string VIS_COG_CHECK = "/CheckImage";
         private const string VIS_COG_ADD = "/AddImage";
@@ -102,11 +104,23 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot {
                     string[] skills = skillsString.Split(',');
 
 
-
                     List<Contact> contacts = GetDynamicsData(skills.ToList());
 
-                    await context.PostAsync(string.Join(", ", contacts.Select(i => i.Username)));
-                    context.Wait(MessageReceivedAsync);
+                    if (contacts.Count > 0)
+                    {
+
+                        var replyMessage = context.MakeMessage();
+                        Attachment contactAttachment = CreateContactsCard(contacts);
+                        replyMessage.Attachments = new List<Attachment> { contactAttachment };
+
+                        await context.PostAsync(replyMessage);
+                    }
+                    else
+                    {
+                        await context.PostAsync("Sorry, I could not find any people with this skill");
+                        context.Wait(MessageReceivedAsync);
+                    }
+
                 }
             }
 
@@ -114,6 +128,7 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot {
 
         private Attachment CreateTagChoiceAdapativecard(List<Tag> tags)
         {
+
             List<string> choices = new List<string>();
             foreach (Tag tag in tags)
             {
@@ -165,36 +180,39 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot {
             List<string> choices = new List<string>();
             foreach (Contact contact in contacts)
             {
-                choices.Add("{'title': '" + contact + "', 'value': '" + contact + "'}");
+                choices.Add(@"{
+                        'type': 'FactSet', 
+                        'facts': [
+                            {
+                                'title': 'Name', 
+                                'value': '" + contact.Username + @"'
+                            },
+                            {
+                                'title': 'Email', 
+                                'value': '" + contact.Email + @"'
+                            },                    
+                            {
+                                'title': 'Skill', 
+                                'value': '" + contact.Skillname + @"'
+                            },
+                            {
+                                'title': 'Level', 
+                                'value': '" + contact.Level + @"'
+                            },
+                        ]}");
             }
 
-            string json = @"{
-                'type': 'AdaptiveCard',
-                'body': [
-                    {
-                        'type': 'TextBlock',
-                        'text': 'Which tag matches your query?'
-                    },
-                    {
-                        'type': 'Input.ChoiceSet',
-                        'id': 'MultiSelectVal',
-                        'value': null,
-                        'choices': [" +
-                        string.Join(",", choices) +
-                        @"],
-                        'isMultiSelect': true
-                    }
-                ],
-                'actions': [
-                    {
-                        'type': 'Action.Submit',
-                        'title': 'Submit',
-                        'data': {
-                            'id': 'MultiSelectVal'
-                        }
-                    }
-                ],
-                '$schema': 'http://adaptivecards.io/schemas/adaptive-card.json',
+            string json = @"{ 
+                'type': 'AdaptiveCard', 
+                'body': [ 
+                    { 
+                        'type': 'TextBlock', 
+                        'size': 'Medium', 
+                        'weight': 'Bolder', 
+                        'text': 'Contacts' 
+                    }," +
+                    string.Join(",", choices) + @"],
+                '$schema': 'http://adaptivecards.io/schemas/adaptive-card.json', 
                 'version': '1.0'
             }";
 
@@ -249,36 +267,12 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot {
 
             try
             {
-                var result = await LoadPredictions(rawData);
-
-                //LoadPredictions
-                //var dataStr = Convert.ToBase64String(rawData);
-                //var postData = Encoding.ASCII.GetBytes("data=" + dataStr);
-                //HttpWebRequest request = (HttpWebRequest)WebRequest.Create(VIS_COG_URL + VIS_COG_CHECK);
-                //request.ContentType = "application/x-www-form-urlencoded";
-                //request.Method = "POST";
-
-                //using (var stream = request.GetRequestStream())
-                //{
-                //    stream.Write(postData, 0, postData.Length);
-                //}
-
-                //string result = "";
-
-                //using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
-                //using (Stream stream = response.GetResponseStream())
-                //using (StreamReader reader = new StreamReader(stream))
-                //{
-                //    result = reader.ReadToEnd();
-                //}
-
-                //results = (JsonConvert.DeserializeObject<List<TagPrediction>>(result));
-
+                results = await LoadPredictions(rawData);
 
             }
             catch (Exception e)
             {
-                return new List<TagPrediction>() { new TagPrediction() { TagName = e.ToString() } };
+                throw;
             }
             return results;
         }
@@ -451,7 +445,27 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot {
                     {
                         var input = await message.Content.ReadAsStringAsync();
 
-                        return JsonConvert.DeserializeObject<List<TagPrediction>>(input);
+                        //JsonConvert.DeserializeObject<List<TagPrediction>>(input);
+
+                        JArray ob = (JArray)JsonConvert.DeserializeObject(input);
+                        List<TagPrediction> preds = new List<TagPrediction>();
+                        foreach (dynamic e in ob)
+                        {
+                            try
+                            {
+                                preds.Add(new TagPrediction()
+                                {
+                                    TagDesc = e.TagDesc,
+                                    TagId = e.TagId,
+                                    TagName = e.TagName,
+                                    TagProbability = e.TagProbability
+                                });
+                            }
+                            catch (Exception)
+                            {
+                            }
+                        }
+                        return preds;
                     }
                 }
             }
@@ -525,12 +539,5 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot {
 
             return result;
         }
-    }
-
-    public class Contact {
-        public string Username { get; set; }
-        public int Level { get; set; }
-        public string Skillname { get; set; }
-
     }
 }
