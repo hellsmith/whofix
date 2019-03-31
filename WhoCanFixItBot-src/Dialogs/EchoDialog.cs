@@ -27,6 +27,7 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
         private const string VIS_COG_CHECK = "/CheckImage";
         private const string VIS_COG_ADD = "/AddImage";
 
+        public const string DYN_URL2 = "https://d365api20190330083214.azurewebsites.net/api/GetData?code=8oG9fRHxO0tKNqI1yab1gQDymjLx82WXdFYGrQSEdE76KLVZZvz39A==&data=";
         public const string DYN_URL = "https://d365api20190330083214.azurewebsites.net/api/GetUserBySkill?code=Yas/x2o0YxaiW05Y2HXCLi0yhkicYfgKvMmfQHM/m3KzXesYd5JUAg==&skillname=";
         public const string LUIS_URL = "https://westus.api.cognitive.microsoft.com/luis/v2.0/apps/a53891ff-21a9-4484-b9c5-bd624ea755c8?spellCheck=true&bing-spell-check-subscription-key=%7B4c880a82a88a481cb7fb555fba560250%7D&verbose=true&timezoneOffset=-360&subscription-key=c435e337eea04d12b113f4d30e394dea&q=";
         protected int count = 1;
@@ -107,7 +108,21 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
                         string[] skills = skillsString.Split(',');
 
 
-                        List<Contact> contacts = GetDynamicsData(skills.ToList());
+                        List<Tag> availableTags = context.ConversationData.GetValue<List<Tag>>("tags");
+                        tags = new List<Tag>();
+
+                        foreach(string skill in skills)
+                        {
+                            foreach(Tag tag in availableTags)
+                            {
+                                if (tag.Name == skill)
+                                {
+                                    tags.Add(tag);
+                                }
+                            }
+                        }
+
+                        List<Contact> contacts = GetDynamicsData(tags);
 
                         if (contacts.Count > 0)
                         {
@@ -201,15 +216,7 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
                             {
                                 'title': 'Email', 
                                 'value': '" + contact.Email + @"'
-                            },                    
-                            {
-                                'title': 'Skill', 
-                                'value': '" + contact.Skillname + @"'
-                            },
-                            {
-                                'title': 'Level', 
-                                'value': '" + contact.Level + @"'
-                            },
+                            }
                         ]}");
             }
 
@@ -238,13 +245,15 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
         }
 
 
-        private List<Contact> GetDynamicsData(List<string> tags)
+        private List<Contact> GetDynamicsData(List<Tag> tags)
         {
             List<Contact> contacts = new List<Contact>();
 
             if (tags.Count > 0)
             {
-                HttpWebRequest request = (HttpWebRequest)WebRequest.Create(DYN_URL + Uri.EscapeDataString(tags[0]));
+                string json = Uri.EscapeUriString(JsonConvert.SerializeObject(tags));
+
+                HttpWebRequest request = (HttpWebRequest)WebRequest.Create(DYN_URL2 + json);
 
                 string result = "";
 
@@ -262,8 +271,8 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
                     contacts.Add(new Contact()
                     {
                         Username = entityObject.Username,
-                        Level = entityObject.Level,
-                        Skillname = entityObject.Skillname,
+                        //Level = entityObject.Level,
+                        //Skillname = entityObject.Skillname,
                         Email = entityObject.Email
                     });
                 }
