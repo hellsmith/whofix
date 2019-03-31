@@ -7,5 +7,6 @@ namespace SimpleEchoBot.Models {
     public class Tag {
         public Guid ID { get; set; }
         public string Name { get; set; }
+        public string Type { get; set; }
     }
 }

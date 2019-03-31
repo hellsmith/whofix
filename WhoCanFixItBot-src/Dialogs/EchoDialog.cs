@@ -64,15 +64,22 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
                     //string base64String = Convert.ToBase64String(imageBytes);
 
                     List<TagPrediction> predictions = await GetImageRawData(imageBytes);
-                    tags = predictions.Select(i => new Tag() { ID = i.TagId, Name = i.TagName }).ToList();
+                    tags = predictions.Select(i => new Tag() { ID = i.TagId, Name = i.TagName, Type = i.TagDesc }).ToList();
 
                     Dictionary<string, List<Tag>> multipleTags = FindMultiples(predictions);
+                    foreach(var entry in multipleTags)
+                    {
+                        foreach(var tag in entry.Value)
+                        {
+                            predictions = predictions.Where(k => k.TagId != tag.ID).ToList();
+                        }
+                    }
 
                     context.ConversationData.SetValue<List<Tag>>("tags", tags);
                     context.ConversationData.SetValue<Dictionary<string, List<Tag>>>("multiples", multipleTags);
                     context.ConversationData.SetValue<string>("image", attachment.ContentUrl);
                     context.ConversationData.SetValue<string>("textinput", "");
-
+                    
                     var replyMessage = context.MakeMessage();
                     Attachment cardAttachment = CreateTagChoiceResponse(multipleTags);
                     replyMessage.Attachments = new List<Attachment> { cardAttachment };
@@ -100,27 +107,36 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
                 {
                     dynamic value = message.Value;
 
-                    string skillsString = ((JObject)value).GetValue("MultiSelectVal").ToString();
-                    string[] skills = skillsString.Split(',');
+                    string dialogType = ((JObject)value).GetValue("id").ToString();
 
-
-                    List<Contact> contacts = GetDynamicsData(skills.ToList());
-
-                    if (contacts.Count > 0)
+                    if (dialogType == "MultiSelect")
                     {
 
-                        var replyMessage = context.MakeMessage();
-                        Attachment contactAttachment = CreateContactsCard(contacts);
-                        replyMessage.Attachments = new List<Attachment> { contactAttachment };
+                        string skillsString = ((JObject)value).GetValue("MultiSelectVal").ToString();
+                        string[] skills = skillsString.Split(',');
 
-                        await context.PostAsync(replyMessage);
+
+                        List<Contact> contacts = GetDynamicsData(skills.ToList());
+
+                        if (contacts.Count > 0)
+                        {
+
+                            var replyMessage = context.MakeMessage();
+                            Attachment contactAttachment = CreateContactsCard(contacts);
+                            replyMessage.Attachments = new List<Attachment> { contactAttachment };
+
+                            await context.PostAsync(replyMessage);
+                        }
+                        else
+                        {
+                            await context.PostAsync("Sorry, I could not find any people with this skill");
+                            context.Wait(MessageReceivedAsync);
+                        }
                     }
-                    else
+                    else if (dialogType == "MultiMultiSelect")
                     {
-                        await context.PostAsync("Sorry, I could not find any people with this skill");
-                        context.Wait(MessageReceivedAsync);
-                    }
 
+                    }
                 }
             }
 
@@ -157,7 +173,7 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
                         'type': 'Action.Submit',
                         'title': 'Submit',
                         'data': {
-                            'id': 'MultiSelectVal'
+                            'id': 'MultiSelect'
                         }
                     }
                 ],
@@ -307,7 +323,7 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
                 foreach (dynamic entityObject in ((JArray)entitiesObject))
                 {
                     string entity = entityObject?.entity;
-                    entities.Add(new Tag() { Name = entity });
+                    entities.Add(new Tag() { Name = entity, Type = "Skill" });
                 }
 
             }
@@ -385,7 +401,7 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
                         'type': 'Action.Submit',
                         'title': 'Submit',
                         'data': {
-                            'id': 'MultiSelect'
+                            'id': 'MultiMultiSelect'
                         }
                     }
                 ],
@@ -500,6 +516,7 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
             {
                 if (pred.TagProbability > 0.5f)
                 {
+                    pred.TagDesc = string.IsNullOrEmpty(pred.TagDesc) ? "Skill" : pred.TagDesc; 
                     if (counts.ContainsKey(pred.TagDesc))
                     {
                         counts[pred.TagDesc]++;
@@ -522,7 +539,8 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
                             result[pred.TagDesc].Add(new Tag()
                             {
                                 ID = pred.TagId,
-                                Name = pred.TagName
+                                Name = pred.TagName,
+                                Type = pred.TagDesc
                             });
                         }
                         else
@@ -530,7 +548,8 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
                             result.Add(pred.TagDesc, new List<Tag>(){new Tag()
                             {
                                 ID = pred.TagId,
-                                Name = pred.TagName
+                                Name = pred.TagName,
+                                Type = pred.TagDesc
                             } });
                         }
                     }
