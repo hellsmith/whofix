@@ -64,24 +64,15 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
                     //string base64String = Convert.ToBase64String(imageBytes);
 
                     List<TagPrediction> predictions = await GetImageRawData(imageBytes);
-                    tags = predictions.Select(i => new Tag() { ID = i.TagId, Name = i.TagName, Type = i.TagDesc }).ToList();
 
-                    Dictionary<string, List<Tag>> multipleTags = FindMultiples(predictions);
-                    foreach(var entry in multipleTags)
-                    {
-                        foreach(var tag in entry.Value)
-                        {
-                            predictions = predictions.Where(k => k.TagId != tag.ID).ToList();
-                        }
-                    }
+                    tags = predictions.Select(k => new Tag() { Name = k.TagName, Type = string.IsNullOrEmpty(k.TagDesc) ? "Skill" : k.TagDesc }).ToList();
 
                     context.ConversationData.SetValue<List<Tag>>("tags", tags);
-                    context.ConversationData.SetValue<Dictionary<string, List<Tag>>>("multiples", multipleTags);
                     context.ConversationData.SetValue<string>("image", attachment.ContentUrl);
                     context.ConversationData.SetValue<string>("textinput", "");
                     
                     var replyMessage = context.MakeMessage();
-                    Attachment cardAttachment = CreateTagChoiceResponse(multipleTags);
+                    Attachment cardAttachment = CreateTagChoiceAdapativecard(tags);
                     replyMessage.Attachments = new List<Attachment> { cardAttachment };
 
                     await context.PostAsync(replyMessage);
@@ -386,7 +377,7 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
 
                 foreach (var tag in entry.Value)
                 {
-                    choices.Add("{'title': '" + tag.Name + "', 'value': '" + tag.ID + "'}");
+                    choices.Add("{'title': '" + tag.Name + "', 'value': '" + tag.Name + "'}");
                 }
 
                 choices.Add("{'title': 'Keines', 'value': 'none'}");
@@ -513,57 +504,6 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
         {
             throw new NotImplementedException();
         }
-
-        public Dictionary<string, List<Tag>> FindMultiples(List<TagPrediction> predictions)
-        {
-            Dictionary<string, List<Tag>> result = new Dictionary<string, List<Tag>>();
-            Dictionary<string, int> counts = new Dictionary<string, int>();
-
-            foreach (var pred in predictions)
-            {
-                if (pred.TagProbability > 0.5f)
-                {
-                    pred.TagDesc = string.IsNullOrEmpty(pred.TagDesc) ? "Skill" : pred.TagDesc; 
-                    if (counts.ContainsKey(pred.TagDesc))
-                    {
-                        counts[pred.TagDesc]++;
-                    }
-                    else
-                    {
-                        counts.Add(pred.TagDesc, 1);
-                    }
-                }
-            }
-
-            foreach (var pred in predictions)
-            {
-                if (!string.IsNullOrEmpty(pred.TagDesc))
-                {
-                    if (counts[pred.TagDesc] > 1)
-                    {
-                        if (result.ContainsKey(pred.TagDesc))
-                        {
-                            result[pred.TagDesc].Add(new Tag()
-                            {
-                                ID = pred.TagId,
-                                Name = pred.TagName,
-                                Type = pred.TagDesc
-                            });
-                        }
-                        else
-                        {
-                            result.Add(pred.TagDesc, new List<Tag>(){new Tag()
-                            {
-                                ID = pred.TagId,
-                                Name = pred.TagName,
-                                Type = pred.TagDesc
-                            } });
-                        }
-                    }
-                }
-            }
-
-            return result;
-        }
+        
     }
 }
