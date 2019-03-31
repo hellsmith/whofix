@@ -66,22 +66,23 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
                     List<TagPrediction> predictions = await GetImageRawData(imageBytes);
                     tags = predictions.Select(i => new Tag() { ID = i.TagId, Name = i.TagName, Type = i.TagDesc }).ToList();
 
-                    Dictionary<string, List<Tag>> multipleTags = FindMultiples(predictions);
-                    foreach(var entry in multipleTags)
-                    {
-                        foreach(var tag in entry.Value)
-                        {
-                            predictions = predictions.Where(k => k.TagId != tag.ID).ToList();
-                        }
-                    }
+                    //Dictionary<string, List<Tag>> multipleTags = FindMultiples(predictions);
+                    //foreach(var entry in multipleTags)
+                    //{
+                    //    foreach(var tag in entry.Value)
+                    //    {
+                    //        predictions = predictions.Where(k => k.TagId != tag.ID).ToList();
+                    //    }
+                    //}
 
                     context.ConversationData.SetValue<List<Tag>>("tags", tags);
-                    context.ConversationData.SetValue<Dictionary<string, List<Tag>>>("multiples", multipleTags);
+                    //context.ConversationData.SetValue<Dictionary<string, List<Tag>>>("multiples", multipleTags);
                     context.ConversationData.SetValue<string>("image", attachment.ContentUrl);
                     context.ConversationData.SetValue<string>("textinput", "");
                     
                     var replyMessage = context.MakeMessage();
-                    Attachment cardAttachment = CreateTagChoiceResponse(multipleTags);
+                    Attachment cardAttachment = CreateTagChoiceAdapativecard(tags);
+                    //Attachment cardAttachment = CreateTagChoiceResponse(multipleTags);
                     replyMessage.Attachments = new List<Attachment> { cardAttachment };
 
                     await context.PostAsync(replyMessage);
@@ -268,7 +269,8 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
                     {
                         Username = entityObject.Username,
                         Level = entityObject.Level,
-                        Skillname = entityObject.Skillname
+                        Skillname = entityObject.Skillname,
+                        Email = entityObject.Email
                     });
                 }
             }
