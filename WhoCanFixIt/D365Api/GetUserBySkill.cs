@@ -34,7 +34,8 @@ namespace D365Api
             }
 
             var meineSkills = GetFromApi(skillname);
-            var jsonString = JsonConvert.SerializeObject(meineSkills);
+            //var jsonString = JsonConvert.SerializeObject(meineSkills);
+            var jsonString = meineSkills;
 
             return skillname == null
                 ? req.CreateResponse(HttpStatusCode.BadRequest, "Please pass a 'skillname' on the query string or in the request body")
@@ -63,17 +64,19 @@ namespace D365Api
                     <attribute name='value' />
                   </link-entity>
                 </link-entity>
-              </entity>
+                <link-entity name='systemuser' from='systemuserid' to='userid' alias='user'>
+                    <attribute name='internalemailaddress' />
+                </link-entity>
+             </entity>
             </fetch>";
             var en = crmService.RetrieveMultiple(new FetchExpression(fetchXml)).Entities;
             var result = en.Select(x => new UserWithSkill()
             {
                 Username = x.GetAttributeValue<string>("name"),
                 Level = x.GetAliasedValue<int>("level.value"),
-                Skillname = x.GetAliasedValue<string>("skill.name")
+                Skillname = x.GetAliasedValue<string>("skill.name"),
+                Email = x.GetAliasedValue<string>("user.internalemailaddress")
             });
-
-
             return result;
         }
 
@@ -83,11 +86,14 @@ namespace D365Api
             public int Level { get; set; }
             public string Skillname { get; set; }
 
-            public UserWithSkill(string username, int level, string skillname)
+            public string Email { get; set; }
+
+            public UserWithSkill(string username, int level, string skillname, string email)
             {
                 this.Username = username;
                 this.Level = level;
                 this.Skillname = skillname;
+                this.Email = email;
             }
 
             public UserWithSkill()
