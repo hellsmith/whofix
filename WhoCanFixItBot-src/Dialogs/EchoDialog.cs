@@ -135,7 +135,11 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
                     }
                     else if (dialogType == "MultiMultiSelect")
                     {
+                        tags = context.ConversationData.GetValue<List<Tag>>("tags");
+                        Dictionary<string, List<Tag>> multipleTags=  context.ConversationData.GetValue<Dictionary<string, List<Tag>>>("multiples");
 
+                        List<Tag> sendList = new List<Tag>();
+                        
                     }
                 }
             }
@@ -384,6 +388,9 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot
                 {
                     choices.Add("{'title': '" + tag.Name + "', 'value': '" + tag.ID + "'}");
                 }
+
+                choices.Add("{'title': 'Keines', 'value': 'none'}");
+
                 choiceList.Add(string.Join(",", choices));
 
                 choices.Add(@"],
