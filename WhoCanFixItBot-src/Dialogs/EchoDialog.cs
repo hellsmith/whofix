@@ -41,7 +41,7 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot {
         {
             var message = await argument;
 
-            List<string> tags = new List<string>();
+            List<Tag> tags = new List<Tag>();
 
             if (!string.IsNullOrWhiteSpace(message.Text) && message.Attachments != null && message.Attachments.Count > 0)
             {
@@ -62,14 +62,17 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot {
                     //string base64String = Convert.ToBase64String(imageBytes);
 
                     List<TagPrediction> predictions = await GetImageRawData(imageBytes);
-                    tags = predictions.Select(i => i.TagName).ToList();
+                    tags = predictions.Select(i => new Tag() { ID = i.TagId, Name = i.TagName }).ToList();
 
-                    context.ConversationData.SetValue<List<string>>("tags", tags);
+                    Dictionary<string, List<Tag>> multipleTags = FindMultiples(predictions);
+
+                    context.ConversationData.SetValue<List<Tag>>("tags", tags);
+                    context.ConversationData.SetValue<Dictionary<string, List<Tag>>>("multiples", multipleTags);
                     context.ConversationData.SetValue<string>("image", attachment.ContentUrl);
                     context.ConversationData.SetValue<string>("textinput", "");
 
                     var replyMessage = context.MakeMessage();
-                    Attachment cardAttachment = CreateTagChoiceAdapativecard(tags);
+                    Attachment cardAttachment = CreateTagChoiceResponse(multipleTags);
                     replyMessage.Attachments = new List<Attachment> { cardAttachment };
 
                     await context.PostAsync(replyMessage);
@@ -78,7 +81,7 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot {
                 {
                     tags = GetTextRawData(message.Text);
 
-                    context.ConversationData.SetValue<List<string>>("tags", tags);
+                    context.ConversationData.SetValue<List<Tag>>("tags", tags);
                     context.ConversationData.SetValue<string>("textinput", message.Text);
                     context.ConversationData.SetValue<string>("image", "");
 
@@ -109,12 +112,12 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot {
 
         }
 
-        private Attachment CreateTagChoiceAdapativecard(List<string> tags)
+        private Attachment CreateTagChoiceAdapativecard(List<Tag> tags)
         {
             List<string> choices = new List<string>();
-            foreach (string tag in tags)
+            foreach (Tag tag in tags)
             {
-                choices.Add("{'title': '" + tag + "', 'value': '" + tag + "'}");
+                choices.Add("{'title': '" + tag.Name + "', 'value': '" + tag.Name + "'}");
             }
 
             string json = @"{
@@ -287,9 +290,9 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot {
             return await response.Content.ReadAsAsync<string>();
         }
 
-        private List<string> GetTextRawData(string inputString)
+        private List<Tag> GetTextRawData(string inputString)
         {
-            List<string> entities = new List<string>();
+            List<Tag> entities = new List<Tag>();
 
             if (!string.IsNullOrWhiteSpace(inputString))
             {
@@ -310,7 +313,7 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot {
                 foreach (dynamic entityObject in ((JArray)entitiesObject))
                 {
                     string entity = entityObject?.entity;
-                    entities.Add(entity);
+                    entities.Add(new Tag() { Name = entity });
                 }
 
             }
