@@ -18,9 +18,11 @@ using System.Web;
 using SimpleEchoBot.Models;
 using System.Globalization;
 
-namespace Microsoft.Bot.Sample.SimpleEchoBot {
+namespace Microsoft.Bot.Sample.SimpleEchoBot
+{
     [Serializable]
-    public class EchoDialog : IDialog<object> {
+    public class EchoDialog : IDialog<object>
+    {
         private const string VIS_COG_URL = "http://whocanfixitapp.azurewebsites.net";
         private const string VIS_COG_CHECK = "/CheckImage";
         private const string VIS_COG_ADD = "/AddImage";
@@ -41,7 +43,7 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot {
         {
             var message = await argument;
 
-            List<string> tags = new List<string>();
+            List<Tag> tags = new List<Tag>();
 
             if (!string.IsNullOrWhiteSpace(message.Text) && message.Attachments != null && message.Attachments.Count > 0)
             {
@@ -62,12 +64,13 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot {
                     //string base64String = Convert.ToBase64String(imageBytes);
 
                     List<TagPrediction> predictions = await GetImageRawData(imageBytes);
-                    tags = predictions.Select(i => i.TagName).ToList();
 
-                    context.ConversationData.SetValue<List<string>>("tags", tags);
+                    tags = predictions.Select(k => new Tag() { Name = k.TagName, Type = string.IsNullOrEmpty(k.TagDesc) ? "Skill" : k.TagDesc }).ToList();
+
+                    context.ConversationData.SetValue<List<Tag>>("tags", tags);
                     context.ConversationData.SetValue<string>("image", attachment.ContentUrl);
                     context.ConversationData.SetValue<string>("textinput", "");
-
+                    
                     var replyMessage = context.MakeMessage();
                     Attachment cardAttachment = CreateTagChoiceAdapativecard(tags);
                     replyMessage.Attachments = new List<Attachment> { cardAttachment };
@@ -78,7 +81,7 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot {
                 {
                     tags = GetTextRawData(message.Text);
 
-                    context.ConversationData.SetValue<List<string>>("tags", tags);
+                    context.ConversationData.SetValue<List<Tag>>("tags", tags);
                     context.ConversationData.SetValue<string>("textinput", message.Text);
                     context.ConversationData.SetValue<string>("image", "");
 
@@ -95,26 +98,52 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot {
                 {
                     dynamic value = message.Value;
 
-                    string skillsString = ((JObject)value).GetValue("MultiSelectVal").ToString();
-                    string[] skills = skillsString.Split(',');
+                    string dialogType = ((JObject)value).GetValue("id").ToString();
+
+                    if (dialogType == "MultiSelect")
+                    {
+
+                        string skillsString = ((JObject)value).GetValue("MultiSelectVal").ToString();
+                        string[] skills = skillsString.Split(',');
 
 
+                        List<Contact> contacts = GetDynamicsData(skills.ToList());
 
-                    List<Contact> contacts = GetDynamicsData(skills.ToList());
+                        if (contacts.Count > 0)
+                        {
 
-                    await context.PostAsync(string.Join(", ", contacts.Select(i => i.Username)));
-                    context.Wait(MessageReceivedAsync);
+                            var replyMessage = context.MakeMessage();
+                            Attachment contactAttachment = CreateContactsCard(contacts);
+                            replyMessage.Attachments = new List<Attachment> { contactAttachment };
+
+                            await context.PostAsync(replyMessage);
+                        }
+                        else
+                        {
+                            await context.PostAsync("Sorry, I could not find any people with this skill");
+                            context.Wait(MessageReceivedAsync);
+                        }
+                    }
+                    else if (dialogType == "MultiMultiSelect")
+                    {
+                        tags = context.ConversationData.GetValue<List<Tag>>("tags");
+                        Dictionary<string, List<Tag>> multipleTags=  context.ConversationData.GetValue<Dictionary<string, List<Tag>>>("multiples");
+
+                        List<Tag> sendList = new List<Tag>();
+                        
+                    }
                 }
             }
 
         }
 
-        private Attachment CreateTagChoiceAdapativecard(List<string> tags)
+        private Attachment CreateTagChoiceAdapativecard(List<Tag> tags)
         {
+
             List<string> choices = new List<string>();
-            foreach (string tag in tags)
+            foreach (Tag tag in tags)
             {
-                choices.Add("{'title': '" + tag + "', 'value': '" + tag + "'}");
+                choices.Add("{'title': '" + tag.Name + "', 'value': '" + tag.Name + "'}");
             }
 
             string json = @"{
@@ -139,7 +168,7 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot {
                         'type': 'Action.Submit',
                         'title': 'Submit',
                         'data': {
-                            'id': 'MultiSelectVal'
+                            'id': 'MultiSelect'
                         }
                     }
                 ],
@@ -162,36 +191,39 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot {
             List<string> choices = new List<string>();
             foreach (Contact contact in contacts)
             {
-                choices.Add("{'title': '" + contact + "', 'value': '" + contact + "'}");
+                choices.Add(@"{
+                        'type': 'FactSet', 
+                        'facts': [
+                            {
+                                'title': 'Name', 
+                                'value': '" + contact.Username + @"'
+                            },
+                            {
+                                'title': 'Email', 
+                                'value': '" + contact.Email + @"'
+                            },                    
+                            {
+                                'title': 'Skill', 
+                                'value': '" + contact.Skillname + @"'
+                            },
+                            {
+                                'title': 'Level', 
+                                'value': '" + contact.Level + @"'
+                            },
+                        ]}");
             }
 
-            string json = @"{
-                'type': 'AdaptiveCard',
-                'body': [
-                    {
-                        'type': 'TextBlock',
-                        'text': 'Which tag matches your query?'
-                    },
-                    {
-                        'type': 'Input.ChoiceSet',
-                        'id': 'MultiSelectVal',
-                        'value': null,
-                        'choices': [" +
-                        string.Join(",", choices) +
-                        @"],
-                        'isMultiSelect': true
-                    }
-                ],
-                'actions': [
-                    {
-                        'type': 'Action.Submit',
-                        'title': 'Submit',
-                        'data': {
-                            'id': 'MultiSelectVal'
-                        }
-                    }
-                ],
-                '$schema': 'http://adaptivecards.io/schemas/adaptive-card.json',
+            string json = @"{ 
+                'type': 'AdaptiveCard', 
+                'body': [ 
+                    { 
+                        'type': 'TextBlock', 
+                        'size': 'Medium', 
+                        'weight': 'Bolder', 
+                        'text': 'Contacts' 
+                    }," +
+                    string.Join(",", choices) + @"],
+                '$schema': 'http://adaptivecards.io/schemas/adaptive-card.json', 
                 'version': '1.0'
             }";
 
@@ -231,7 +263,8 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot {
                     {
                         Username = entityObject.Username,
                         Level = entityObject.Level,
-                        Skillname = entityObject.Skillname
+                        Skillname = entityObject.Skillname,
+                        Email = entityObject.Email
                     });
                 }
             }
@@ -246,36 +279,12 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot {
 
             try
             {
-                var result = await LoadPredictions(rawData);
-
-                //LoadPredictions
-                //var dataStr = Convert.ToBase64String(rawData);
-                //var postData = Encoding.ASCII.GetBytes("data=" + dataStr);
-                //HttpWebRequest request = (HttpWebRequest)WebRequest.Create(VIS_COG_URL + VIS_COG_CHECK);
-                //request.ContentType = "application/x-www-form-urlencoded";
-                //request.Method = "POST";
-
-                //using (var stream = request.GetRequestStream())
-                //{
-                //    stream.Write(postData, 0, postData.Length);
-                //}
-
-                //string result = "";
-
-                //using (HttpWebResponse response = (HttpWebResponse)request.GetResponse())
-                //using (Stream stream = response.GetResponseStream())
-                //using (StreamReader reader = new StreamReader(stream))
-                //{
-                //    result = reader.ReadToEnd();
-                //}
-
-                //results = (JsonConvert.DeserializeObject<List<TagPrediction>>(result));
-
+                results = await LoadPredictions(rawData);
 
             }
             catch (Exception e)
             {
-                return new List<TagPrediction>() { new TagPrediction() { TagName = e.ToString() } };
+                throw;
             }
             return results;
         }
@@ -287,9 +296,9 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot {
             return await response.Content.ReadAsAsync<string>();
         }
 
-        private List<string> GetTextRawData(string inputString)
+        private List<Tag> GetTextRawData(string inputString)
         {
-            List<string> entities = new List<string>();
+            List<Tag> entities = new List<Tag>();
 
             if (!string.IsNullOrWhiteSpace(inputString))
             {
@@ -310,7 +319,7 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot {
                 foreach (dynamic entityObject in ((JArray)entitiesObject))
                 {
                     string entity = entityObject?.entity;
-                    entities.Add(entity);
+                    entities.Add(new Tag() { Name = entity, Type = "Skill" });
                 }
 
             }
@@ -369,8 +378,11 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot {
 
                 foreach (var tag in entry.Value)
                 {
-                    choices.Add("{'title': '" + tag.Name + "', 'value': '" + tag.ID + "'}");
+                    choices.Add("{'title': '" + tag.Name + "', 'value': '" + tag.Name + "'}");
                 }
+
+                choices.Add("{'title': 'Keines', 'value': 'none'}");
+
                 choiceList.Add(string.Join(",", choices));
 
                 choices.Add(@"],
@@ -388,7 +400,7 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot {
                         'type': 'Action.Submit',
                         'title': 'Submit',
                         'data': {
-                            'id': 'MultiSelect'
+                            'id': 'MultiMultiSelect'
                         }
                     }
                 ],
@@ -448,7 +460,27 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot {
                     {
                         var input = await message.Content.ReadAsStringAsync();
 
-                        return JsonConvert.DeserializeObject<List<TagPrediction>>(input);
+                        //JsonConvert.DeserializeObject<List<TagPrediction>>(input);
+
+                        JArray ob = (JArray)JsonConvert.DeserializeObject(input);
+                        List<TagPrediction> preds = new List<TagPrediction>();
+                        foreach (dynamic e in ob)
+                        {
+                            try
+                            {
+                                preds.Add(new TagPrediction()
+                                {
+                                    TagDesc = e.TagDesc,
+                                    TagId = e.TagId,
+                                    TagName = e.TagName,
+                                    TagProbability = e.TagProbability
+                                });
+                            }
+                            catch (Exception)
+                            {
+                            }
+                        }
+                        return preds;
                     }
                 }
             }
@@ -473,61 +505,6 @@ namespace Microsoft.Bot.Sample.SimpleEchoBot {
         {
             throw new NotImplementedException();
         }
-
-        public Dictionary<string, List<Tag>> FindMultiples(List<TagPrediction> predictions)
-        {
-            Dictionary<string, List<Tag>> result = new Dictionary<string, List<Tag>>();
-            Dictionary<string, int> counts = new Dictionary<string, int>();
-
-            foreach (var pred in predictions)
-            {
-                if (pred.TagProbability > 0.5f)
-                {
-                    if (counts.ContainsKey(pred.TagDesc))
-                    {
-                        counts[pred.TagDesc]++;
-                    }
-                    else
-                    {
-                        counts.Add(pred.TagDesc, 1);
-                    }
-                }
-            }
-
-            foreach (var pred in predictions)
-            {
-                if (!string.IsNullOrEmpty(pred.TagDesc))
-                {
-                    if (counts[pred.TagDesc] > 1)
-                    {
-                        if (result.ContainsKey(pred.TagDesc))
-                        {
-                            result[pred.TagDesc].Add(new Tag()
-                            {
-                                ID = pred.TagId,
-                                Name = pred.TagName
-                            });
-                        }
-                        else
-                        {
-                            result.Add(pred.TagDesc, new List<Tag>(){new Tag()
-                            {
-                                ID = pred.TagId,
-                                Name = pred.TagName
-                            } });
-                        }
-                    }
-                }
-            }
-
-            return result;
-        }
-    }
-
-    public class Contact {
-        public string Username { get; set; }
-        public int Level { get; set; }
-        public string Skillname { get; set; }
-
+        
     }
 }
